@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Barata",
+      "hasCanvas": false,
+      "bodyTextLen": 257,
+      "bodyTextHash": "ed415f3f8cae27307101ee726b59825cc30ed2178916ee8ec1f3ef90266f7761",
+      "bodyTextPrefix": "Barata Curaçao prices Catalog Stores List Add Business CURAÇAO ·",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Barata",
+      "hasCanvas": false,
+      "bodyTextLen": 8747,
+      "bodyTextHash": "d3a662c20c1ef446f79350685315e62139129a4f81bde236dbd8c3e95c55b47d",
+      "bodyTextPrefix": "Barata Sign in CURAÇAO · 12 STORES · 80 STAPLES Who is cheapest ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

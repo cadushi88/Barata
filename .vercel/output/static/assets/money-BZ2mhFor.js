@@ -1,0 +1,1 @@
+function e(e){let t=typeof e==`string`?Number(e):e??0;return Number.isFinite(t)?`XCG ${t.toFixed(2)}`:`—`}function t(e){let t=typeof e==`string`?Number(e):e??0;return Number.isFinite(t)?t:0}export{e as n,t};
