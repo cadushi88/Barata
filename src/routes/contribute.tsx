@@ -18,9 +18,17 @@ function ContributePage() {
     "Mangusa Hypermarket\nMelk 1L          3.15\nRijst 1kg        5.49\nKipfilet 1kg    11.20\nBananen 1kg      4.80\nEieren 12        6.25\nTOTAAL          30.89",
   );
   const [storeId, setStoreId] = useState("mangusa-hyper");
+  const [storeManuallySet, setStoreManuallySet] = useState(false);
+  const [purchaseDate, setPurchaseDate] = useState<string>("");
   const [imageDataUrl, setImageDataUrl] = useState<string | undefined>();
   const parse = useMutation({
     mutationFn: () => parseReceipt({ data: { text, storeId, imageDataUrl } }),
+    onSuccess: (res) => {
+      if (!res.ok) return;
+      // Only auto-apply the AI's detected store if the user hasn't already picked one themselves.
+      if (!storeManuallySet && res.detectedStoreId) setStoreId(res.detectedStoreId);
+      if (res.purchaseDate) setPurchaseDate(res.purchaseDate);
+    },
   });
   const commit = useMutation({
     mutationFn: () => {
@@ -28,7 +36,7 @@ function ContributePage() {
         .filter((i) => i.productId)
         .map((i) => ({ productId: i.productId as number, amount: i.amount }));
       const receiptId = parse.data && parse.data.ok ? parse.data.receiptId : 0;
-      return commitReceipt({ data: { receiptId: receiptId ?? 0, storeId, items } });
+      return commitReceipt({ data: { receiptId: receiptId ?? 0, storeId, items, purchaseDate: purchaseDate || null } });
     },
   });
 
@@ -59,11 +67,21 @@ function ContributePage() {
           }}
         >
           <label className="block text-sm">
-            <span className="mb-1 block text-muted">Store</span>
+            <span className="mb-1 block text-muted">
+              Store
+              {parsed && parse.data?.ok && parse.data.detectedStoreId ? (
+                <span className="ml-2 text-xs text-faint">
+                  AI detected · {Math.round((parse.data.storeConfidence ?? 0) * 100)}% match
+                </span>
+              ) : null}
+            </span>
             <select
               className="h-11 w-full rounded-xl border border-line bg-surface px-3"
               value={storeId}
-              onChange={(e) => setStoreId(e.target.value)}
+              onChange={(e) => {
+                setStoreId(e.target.value);
+                setStoreManuallySet(true);
+              }}
             >
               {(stores.data ?? []).map((s) => (
                 <option key={s.id} value={s.id}>
@@ -71,6 +89,16 @@ function ContributePage() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted">Purchase date {purchaseDate ? "" : "(not detected — enter manually)"}</span>
+            <input
+              type="date"
+              className="h-11 w-full rounded-xl border border-line bg-surface px-3"
+              value={purchaseDate}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setPurchaseDate(e.target.value)}
+            />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block text-muted">Receipt text</span>
@@ -114,6 +142,11 @@ function ContributePage() {
             <p className="mt-2 text-sm text-muted">Results appear here, grouped by type.</p>
           ) : (
             <>
+              {parse.data?.ok && parse.data.isStale ? (
+                <p className="mb-3 rounded-lg bg-warn/10 px-3 py-2 text-xs text-warn">
+                  This receipt is over a year old — treat its prices as historical, not current.
+                </p>
+              ) : null}
               <ul className="mt-3 space-y-2">
                 {parsed.items.map((it, i) => (
                   <li key={i} className="flex items-start justify-between gap-3 text-sm">
@@ -122,9 +155,13 @@ function ContributePage() {
                       <div className="text-xs text-faint">
                         {it.category}
                         {it.matchedName ? ` · matched ${it.matchedName}` : " · unmatched"}
+                        {it.isWeighed ? " · priced per kg" : ""}
                       </div>
                     </div>
-                    <div className="tabular-nums">{xcg(it.amount)}</div>
+                    <div className="tabular-nums">
+                      {xcg(it.amount)}
+                      {it.isWeighed ? <span className="text-xs text-faint">/kg</span> : null}
+                    </div>
                   </li>
                 ))}
               </ul>
