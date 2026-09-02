@@ -56,6 +56,11 @@ function ProductPage() {
                 {product.unit}
                 {product.brand ? ` · ${product.brand}` : ""}
               </p>
+              {product.needs_review ? (
+                <p className="mt-1 text-xs text-warn">
+                  Needs review: this name may be missing its product type (imported from a source that only listed the brand).
+                </p>
+              ) : null}
             </div>
             {user ? (
               <button
