@@ -19,6 +19,7 @@ export type ProductRow = {
   brand: string | null;
   category: string;
   unit: string;
+  needs_review: boolean;
 };
 
 export type PriceRow = {
@@ -55,7 +56,7 @@ export const searchProducts = createServerFn({ method: "GET" })
     const q = (data.q ?? "").trim().toLowerCase();
     const cat = (data.category ?? "").trim();
     const products = await sql<ProductRow>`
-      select id, slug, name, brand, category, unit
+      select id, slug, name, brand, category, unit, needs_review
       from products
       where (${q.length === 0} or lower(name) like ${"%" + q + "%"} or lower(coalesce(brand,'')) like ${"%" + q + "%"})
         and (${cat.length === 0} or category = ${cat})
@@ -90,7 +91,7 @@ export const getProduct = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const sql = await getSql();
     const products = await sql<ProductRow>`
-      select id, slug, name, brand, category, unit from products where id = ${data.id}
+      select id, slug, name, brand, category, unit, needs_review from products where id = ${data.id}
     `;
     const product = products[0] ?? null;
     const prices = await sql<PriceRow>`
@@ -118,7 +119,7 @@ export const getStore = createServerFn({ method: "GET" })
       ProductRow & { amount: string; observed_at: string }
     >`
       select distinct on (pr.id)
-        pr.id, pr.slug, pr.name, pr.brand, pr.category, pr.unit,
+        pr.id, pr.slug, pr.name, pr.brand, pr.category, pr.unit, pr.needs_review,
         p.amount::text as amount, p.observed_at::text as observed_at
       from products pr
       join prices p on p.product_id = pr.id
@@ -193,7 +194,7 @@ export const getList = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const sql = await getSql();
     return sql<ProductRow & { qty: string; list_id: number }>`
-      select sl.id as list_id, sl.qty::text as qty, pr.id, pr.slug, pr.name, pr.brand, pr.category, pr.unit
+      select sl.id as list_id, sl.qty::text as qty, pr.id, pr.slug, pr.name, pr.brand, pr.category, pr.unit, pr.needs_review
       from shopping_list sl
       join products pr on pr.id = sl.product_id
       where sl.user_id = ${context.userId}
