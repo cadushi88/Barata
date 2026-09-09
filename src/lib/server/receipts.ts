@@ -1,7 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
+import { MAX_PRICE_XCG } from "@/lib/server/catalog";
 import { z } from "zod";
+
+/**
+ * Most receipts one account may run through the (paid) AI extractor per hour.
+ * Every call spends an xAI request on an attacker-chosen payload of up to 20k
+ * characters plus a 2.5 MB image, so without a ceiling one signed-in account can
+ * drain the app's API budget in a loop.
+ */
+const MAX_PARSES_PER_HOUR = 30;
+
+/** Most price lines one receipt commit may publish. */
+const MAX_COMMIT_ITEMS = 200;
 
 type ParsedItem = {
   name: string;
@@ -74,6 +86,13 @@ export const parseReceipt = createServerFn({ method: "POST" })
       return { ok: false as const, error: "AI is not available in this environment" };
     }
     const sql = await getSql();
+    const [{ n: recentParses }] = await sql<{ n: number }>`
+      select count(*)::int as n from receipts
+      where user_id = ${context.userId} and created_at > now() - interval '1 hour'
+    `;
+    if (recentParses >= MAX_PARSES_PER_HOUR) {
+      return { ok: false as const, error: "Too many receipts in the last hour — try again later" };
+    }
     const catalog = await sql<{ id: number; name: string; category: string }>`
       select id, name, category from products
     `;
@@ -159,6 +178,10 @@ Receipt text:\n${data.text || "(image only)"}`,
       // the per-kg unit price — not the line total, which varies purely with how much was weighed.
       const isWeighed = Boolean(it.isWeighed) && Number.isFinite(Number(it.unitPrice)) && Number(it.unitPrice) > 0;
       const recordedAmount = isWeighed ? Number(it.unitPrice) : Number(it.amount);
+      // The model's output is derived from attacker-supplied receipt text/image,
+      // so treat it as untrusted: only in-range amounts become storable lines.
+      if (!(recordedAmount > 0) || recordedAmount > MAX_PRICE_XCG) continue;
+      if (items.length >= MAX_COMMIT_ITEMS) break;
       items.push({
         name: String(it.name),
         amount: recordedAmount,
@@ -173,11 +196,15 @@ Receipt text:\n${data.text || "(image only)"}`,
     }
     items.sort((a, b) => (a.category ?? "").localeCompare(b.category ?? "") || a.amount - b.amount);
 
+    // Never write a client-supplied store id straight into the FK column — an
+    // unknown id would surface as an unhandled 500 instead of a clean result.
+    const requestedStoreId = storeRows.some((s) => s.id === data.storeId) ? data.storeId : null;
+
     const rec = await sql<{ id: number }>`
       insert into receipts (user_id, store_id, raw_text, parsed, status, purchase_date, detected_store_id, store_match_confidence)
       values (
         ${context.userId},
-        ${data.storeId || detectedStoreId || null},
+        ${requestedStoreId || detectedStoreId || null},
         ${data.text || null},
         ${JSON.stringify({ storeGuess: parsed.storeGuess ?? null, purchaseDate, items })}::jsonb,
         'parsed',
@@ -209,9 +236,16 @@ export const commitReceipt = createServerFn({ method: "POST" })
       purchaseDate?: string | null;
     }) =>
       z.object({
-        receiptId: z.number().int(),
-        storeId: z.string().min(1),
-        items: z.array(z.object({ productId: z.number().int(), amount: z.number().positive() })),
+        receiptId: z.number().int().positive(),
+        storeId: z.string().min(1).max(64),
+        items: z
+          .array(
+            z.object({
+              productId: z.number().int().positive(),
+              amount: z.number().positive().max(MAX_PRICE_XCG),
+            }),
+          )
+          .max(MAX_COMMIT_ITEMS),
         purchaseDate: z
           .string()
           .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -220,24 +254,66 @@ export const commitReceipt = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const sql = await getSql();
-    const owned = await sql<{ id: number }>`
-      select id from receipts where id = ${data.receiptId} and user_id = ${context.userId}
+    const owned = await sql<{ id: number; status: string; parsed: { items?: ParsedItem[] } | null }>`
+      select id, status, parsed from receipts where id = ${data.receiptId} and user_id = ${context.userId}
     `;
-    if (!owned[0]) return { ok: false as const, error: "Receipt not found" };
+    const receipt = owned[0];
+    if (!receipt) return { ok: false as const, error: "Receipt not found" };
+    // A receipt is a one-shot ticket to write public prices. Without this an
+    // attacker could replay one commit endlessly to flood `prices`.
+    if (receipt.status === "committed") {
+      return { ok: false as const, error: "This receipt has already been published" };
+    }
+    const storeExists = await sql<{ id: string }>`select id from stores where id = ${data.storeId}`;
+    if (!storeExists[0]) return { ok: false as const, error: "Unknown store" };
+
+    // `prices` is PUBLIC data every other user's comparison depends on, so the
+    // client only gets to SELECT which of this receipt's server-extracted lines
+    // to publish — never to supply the product/price pair itself. Amounts come
+    // from the row the server wrote at parse time, not from the request body.
+    const rawParsedItems = receipt.parsed?.items;
+    const parsedItems: ParsedItem[] = Array.isArray(rawParsedItems) ? rawParsedItems : [];
+    const allowed = new Map<number, number>();
+    for (const it of parsedItems) {
+      const productId = Number(it?.productId);
+      const amount = Number(it?.amount);
+      if (!Number.isInteger(productId) || productId <= 0) continue;
+      if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_PRICE_XCG) continue;
+      allowed.set(productId, amount);
+    }
+    const lines: { productId: number; amount: number }[] = [];
+    const seen = new Set<number>();
+    for (const it of data.items) {
+      const amount = allowed.get(it.productId);
+      if (amount === undefined || seen.has(it.productId)) continue;
+      seen.add(it.productId);
+      lines.push({ productId: it.productId, amount });
+    }
+    if (lines.length === 0) {
+      return { ok: false as const, error: "No matched receipt lines to publish" };
+    }
+
+    // The purchase date drives `observed_at`, and every lookup takes the LATEST
+    // observation per store — so an unchecked date lets a forged price sit
+    // permanently at the top. The form caps it client-side; enforce it here.
+    const purchaseDate = normalizeReceiptDate(data.purchaseDate);
+    if (data.purchaseDate && !purchaseDate) {
+      return { ok: false as const, error: "Purchase date must be a real date within the last 10 years" };
+    }
     // Use the receipt's actual purchase date for price history when we have one,
     // rather than the upload time — a receipt from last week shouldn't look like today's price.
-    const observedAt = data.purchaseDate ? `${data.purchaseDate}T12:00:00Z` : new Date().toISOString();
-    for (const it of data.items) {
+    const observedAt = purchaseDate ? `${purchaseDate}T12:00:00Z` : new Date().toISOString();
+    for (const it of lines) {
       await sql`
         insert into prices (product_id, store_id, amount, source, user_id, observed_at)
         values (${it.productId}, ${data.storeId}, ${it.amount}, 'receipt', ${context.userId}, ${observedAt})
       `;
     }
     await sql`
-      update receipts set store_id = ${data.storeId}, status = 'committed', purchase_date = ${data.purchaseDate ?? null}
+      update receipts set store_id = ${data.storeId}, status = 'committed', purchase_date = ${purchaseDate}
       where id = ${data.receiptId} and user_id = ${context.userId}
     `;
-    return { ok: true as const, n: data.items.length };
+    return { ok: true as const, n: lines.length };
   });
 
 export const myReceipts = createServerFn({ method: "GET" })
