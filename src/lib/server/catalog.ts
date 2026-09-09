@@ -74,7 +74,10 @@ export const searchProducts = createServerFn({ method: "GET" })
         p.product_id, s.name as store_name, p.amount::text as amount
       from prices p
       join stores s on s.id = p.store_id
-      order by p.product_id, p.store_id, p.observed_at desc
+      -- p.id desc breaks observed_at ties deterministically (newest insert wins):
+      -- commitReceipt stamps every line of a receipt with the same purchase-date
+      -- timestamp, so a corrected re-upload would otherwise be a coin flip.
+      order by p.product_id, p.store_id, p.observed_at desc, p.id desc
     `;
     const byProduct = new Map<number, { amount: number; store: string }[]>();
     for (const row of latest) {
@@ -108,7 +111,10 @@ export const getProduct = createServerFn({ method: "GET" })
       from prices p
       join stores s on s.id = p.store_id
       where p.product_id = ${data.id}
-      order by p.store_id, p.observed_at desc
+      -- p.id desc breaks observed_at ties deterministically (newest insert wins):
+      -- commitReceipt stamps every line of a receipt with the same purchase-date
+      -- timestamp, so a corrected re-upload would otherwise be a coin flip.
+      order by p.store_id, p.observed_at desc, p.id desc
     `;
     prices.sort((a, b) => Number(a.amount) - Number(b.amount));
     return { product, prices };
@@ -131,7 +137,10 @@ export const getStore = createServerFn({ method: "GET" })
       from products pr
       join prices p on p.product_id = pr.id
       where p.store_id = ${data.id}
-      order by pr.id, p.observed_at desc
+      -- p.id desc breaks observed_at ties deterministically (newest insert wins):
+      -- commitReceipt stamps every line of a receipt with the same purchase-date
+      -- timestamp, so a corrected re-upload would otherwise be a coin flip.
+      order by pr.id, p.observed_at desc, p.id desc
     `;
     items.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
     return { store, items };
@@ -192,7 +201,10 @@ export const cheapestBasket = createServerFn({ method: "GET" })
         p.product_id, p.store_id, p.amount::text as amount, pr.name
       from prices p
       join products pr on pr.id = p.product_id
-      order by p.product_id, p.store_id, p.observed_at desc
+      -- p.id desc breaks observed_at ties deterministically (newest insert wins):
+      -- commitReceipt stamps every line of a receipt with the same purchase-date
+      -- timestamp, so a corrected re-upload would otherwise be a coin flip.
+      order by p.product_id, p.store_id, p.observed_at desc, p.id desc
     `;
     const idSet = new Set(ids);
     const byStore = new Map<string, { product_id: number; name: string; amount: number }[]>();
