@@ -156,6 +156,7 @@ function ContributePage() {
                         {it.category}
                         {it.matchedName ? ` · matched ${it.matchedName}` : " · unmatched"}
                         {it.isWeighed ? " · priced per kg" : ""}
+                        {it.missingUnitPrice ? " · sold by weight, no per-kg price on the line — not published" : ""}
                       </div>
                     </div>
                     <div className="tabular-nums">

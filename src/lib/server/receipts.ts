@@ -12,6 +12,8 @@ type ParsedItem = {
   productId?: number | null;
   matchedName?: string | null;
   isWeighed?: boolean;
+  /** Sold by weight but the receipt's per-kg figure was not readable — not publishable. */
+  missingUnitPrice?: boolean;
   unitPrice?: number | null;
 };
 
@@ -191,17 +193,25 @@ Receipt text:\n${data.text || "(image only)"}`,
       const matched = best && best.score >= 0.45;
       // For weighed goods (e.g. "2.23 kg @ FL3.95/kg"), the comparable, storable price is
       // the per-kg unit price — not the line total, which varies purely with how much was weighed.
-      const isWeighed = Boolean(it.isWeighed) && Number.isFinite(Number(it.unitPrice)) && Number(it.unitPrice) > 0;
-      const recordedAmount = isWeighed ? Number(it.unitPrice) : Number(it.amount);
+      const declaredWeighed = Boolean(it.isWeighed);
+      const perKg = Number(it.unitPrice);
+      const isWeighed = declaredWeighed && Number.isFinite(perKg) && perKg > 0;
+      // …which means a line flagged as weighed but missing its "@ x.xx/kg" figure has no
+      // storable price at all. Previously it silently fell through to the line total, so
+      // "2.230 kg @ 3.95/kg = 8.81" taught the catalog that a kilo costs 8.81. Keep the
+      // line visible with its real total, but never let it be published as a price.
+      const missingUnitPrice = declaredWeighed && !isWeighed;
+      const recordedAmount = isWeighed ? perKg : Number(it.amount);
       items.push({
         name: String(it.name),
         amount: recordedAmount,
         qty: Number(it.qty) || 1,
         unit: isWeighed ? "kg" : it.unit ?? null,
         category: it.category ?? (matched ? catalog.find((c) => c.id === best!.id)?.category : "Pantry"),
-        productId: matched ? best!.id : null,
+        productId: matched && !missingUnitPrice ? best!.id : null,
         matchedName: matched ? best!.name : null,
         isWeighed,
+        missingUnitPrice,
         unitPrice: isWeighed ? recordedAmount : null,
       });
     }
