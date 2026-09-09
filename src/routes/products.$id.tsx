@@ -67,7 +67,7 @@ function ProductPage() {
       }
       return point;
     });
-    return { series, storeNames, hasEnoughData: dates.length >= 2 };
+    return { series, storeNames, dates, hasEnoughData: dates.length >= 2 };
   }, [history.data]);
 
   const chartColors = ["#0E6E5E", "#D98E4A", "#6B7570", "#0A5548", "#B0562F", "#3B6E8F"];
@@ -211,8 +211,13 @@ function ProductPage() {
               </div>
             </div>
           ) : history.data && history.data.length > 0 ? (
+            // A chart needs two dates, not two prices: over a third of the catalog was
+            // seeded from a single survey day, so "only one price point" would be a
+            // flat lie on a page already listing a dozen store prices.
             <p className="mt-6 text-sm text-faint">
-              Only one price point recorded so far — history will appear here once more prices come in over time.
+              {history.data.length === 1
+                ? "Only one price recorded so far — history will appear here once more prices come in over time."
+                : `All ${history.data.length} recorded prices come from a single day (${chart.dates[0]}) — a trend line appears once prices are logged on another day.`}
             </p>
           ) : null}
 
