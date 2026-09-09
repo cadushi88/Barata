@@ -13,10 +13,22 @@ export const Route = createFileRoute("/products/$id")({ component: ProductPage }
 function ProductPage() {
   const { id } = Route.useParams();
   const pid = Number(id);
+  // /products/anything-non-numeric would otherwise send NaN to Postgres
+  // ("invalid input syntax for type integer"), so the page sat on a loading
+  // skeleton through three react-query retries before admitting defeat.
+  const validId = Number.isInteger(pid) && pid > 0;
   const { user } = useCurrentUserState();
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["product", pid], queryFn: () => getProduct({ data: { id: pid } }) });
-  const history = useQuery({ queryKey: ["price-history", pid], queryFn: () => getPriceHistory({ data: { id: pid } }) });
+  const q = useQuery({
+    queryKey: ["product", pid],
+    queryFn: () => getProduct({ data: { id: pid } }),
+    enabled: validId,
+  });
+  const history = useQuery({
+    queryKey: ["price-history", pid],
+    queryFn: () => getPriceHistory({ data: { id: pid } }),
+    enabled: validId,
+  });
   const stores = useQuery({ queryKey: ["stores"], queryFn: () => listStores() });
   const [storeId, setStoreId] = useState("");
   const [amount, setAmount] = useState("");
