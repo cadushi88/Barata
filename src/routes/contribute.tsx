@@ -176,6 +176,9 @@ function ContributePage() {
               {commit.data && commit.data.ok ? (
                 <p className="mt-2 text-sm text-good">Published {commit.data.n} prices to the public catalog.</p>
               ) : null}
+              {commit.data && !commit.data.ok ? (
+                <p className="mt-2 text-sm text-warn">{commit.data.error}</p>
+              ) : null}
             </>
           )}
         </div>

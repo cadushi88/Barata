@@ -56,8 +56,25 @@ export const getCatalogStats = createServerFn({ method: "GET" }).handler(async (
   return { storeCount, productCount };
 });
 
+/**
+ * Upper bound on a single reported price (XCG). Enforced on EVERY path that
+ * writes to `prices` — manual reports and receipt commits alike — so no endpoint
+ * becomes the soft spot for poisoning the public catalog.
+ */
+export const MAX_PRICE_XCG = 9999;
+
+/** How many products one basket comparison may span (the comparison is O(ids²·stores)). */
+const MAX_BASKET_ITEMS = 500;
+
 export const searchProducts = createServerFn({ method: "GET" })
-  .validator((input: { q?: string; category?: string }) => input)
+  .validator((input: { q?: string; category?: string }) =>
+    z
+      .object({
+        q: z.string().max(200).optional(),
+        category: z.string().max(80).optional(),
+      })
+      .parse(input ?? {}),
+  )
   .handler(async ({ data }) => {
     const sql = await getSql();
     const q = (data.q ?? "").trim().toLowerCase();
@@ -94,7 +111,7 @@ export const searchProducts = createServerFn({ method: "GET" })
   });
 
 export const getProduct = createServerFn({ method: "GET" })
-  .validator((input: { id: number }) => input)
+  .validator((input: { id: number }) => z.object({ id: z.number().int().positive() }).parse(input))
   .handler(async ({ data }) => {
     const sql = await getSql();
     const products = await sql<ProductRow>`
@@ -115,7 +132,7 @@ export const getProduct = createServerFn({ method: "GET" })
   });
 
 export const getStore = createServerFn({ method: "GET" })
-  .validator((input: { id: string }) => input)
+  .validator((input: { id: string }) => z.object({ id: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data }) => {
     const sql = await getSql();
     const stores = await sql<StoreRow>`
@@ -138,9 +155,18 @@ export const getStore = createServerFn({ method: "GET" })
   });
 
 export const cheapestBasket = createServerFn({ method: "GET" })
-  .validator((input: { productIds: number[] }) => input)
+  .validator((input: { productIds: number[] }) =>
+    z
+      .object({
+        // Bounded: the per-item "best store" pass is O(ids² · stores), so an
+        // unbounded id list from a (public, unauthenticated) caller would pin
+        // the server until the request timed out.
+        productIds: z.array(z.number().int().positive()).max(MAX_BASKET_ITEMS),
+      })
+      .parse(input),
+  )
   .handler(async ({ data }) => {
-    const ids = data.productIds.filter((n) => Number.isFinite(n));
+    const ids = [...new Set(data.productIds)];
     if (ids.length === 0)
       return {
         stores: [] as {
@@ -225,7 +251,7 @@ export const cheapestBasket = createServerFn({ method: "GET" })
   });
 
 export const getPriceHistory = createServerFn({ method: "GET" })
-  .validator((input: { id: number }) => input)
+  .validator((input: { id: number }) => z.object({ id: z.number().int().positive() }).parse(input))
   .handler(async ({ data }) => {
     const sql = await getSql();
     // Full history (not just latest-per-store) so we can chart how each store's price
@@ -247,7 +273,7 @@ export const addPrice = createServerFn({ method: "POST" })
       z.object({
         productId: z.number().int().positive(),
         storeId: z.string().min(1),
-        amount: z.number().positive().max(9999),
+        amount: z.number().positive().max(MAX_PRICE_XCG),
       }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -274,7 +300,9 @@ export const getList = createServerFn({ method: "GET" })
 
 export const addToList = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { productId: number }) => input)
+  .validator((input: { productId: number }) =>
+    z.object({ productId: z.number().int().positive() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     const sql = await getSql();
     await sql`
@@ -287,7 +315,9 @@ export const addToList = createServerFn({ method: "POST" })
 
 export const removeFromList = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { productId: number }) => input)
+  .validator((input: { productId: number }) =>
+    z.object({ productId: z.number().int().positive() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     const sql = await getSql();
     await sql`
