@@ -62,10 +62,15 @@ export const searchProducts = createServerFn({ method: "GET" })
     const sql = await getSql();
     const q = (data.q ?? "").trim().toLowerCase();
     const cat = (data.category ?? "").trim();
+    // Escape LIKE metacharacters so a shopper typing "100%" or "a_b" searches for those
+    // literal characters instead of matching every product (and so a trailing backslash
+    // can't make Postgres reject the pattern outright).
+    const pattern = "%" + q.replace(/[\\%_]/g, (ch) => "\\" + ch) + "%";
     const products = await sql<ProductRow>`
       select id, slug, name, brand, category, unit, needs_review
       from products
-      where (${q.length === 0} or lower(name) like ${"%" + q + "%"} or lower(coalesce(brand,'')) like ${"%" + q + "%"})
+      where (${q.length === 0} or lower(name) like ${pattern} escape '\'
+             or lower(coalesce(brand,'')) like ${pattern} escape '\')
         and (${cat.length === 0} or category = ${cat})
       order by name
     `;
