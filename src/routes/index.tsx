@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Shell } from "@/components/shell";
-import { listCategories, searchProducts, addToList } from "@/lib/server/catalog";
+import { listCategories, getCatalogStats, searchProducts, addToList } from "@/lib/server/catalog";
 import { xcg, num } from "@/lib/money";
 import { ProductPhoto } from "@/components/product-photo";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -15,6 +15,7 @@ function Home() {
   const { user } = useCurrentUserState();
   const qc = useQueryClient();
   const cats = useQuery({ queryKey: ["cats"], queryFn: () => listCategories() });
+  const stats = useQuery({ queryKey: ["catalog-stats"], queryFn: () => getCatalogStats() });
   const products = useQuery({
     queryKey: ["products", q, category],
     queryFn: () => searchProducts({ data: { q, category } }),
@@ -27,7 +28,9 @@ function Home() {
   return (
     <Shell>
       <section className="mb-5 max-w-2xl md:mb-8">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">Curaçao · 12 stores · 80 staples</p>
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
+          Curaçao{stats.data ? ` · ${stats.data.storeCount} stores · ${stats.data.productCount} staples` : ""}
+        </p>
         <h1 className="mt-2 font-display text-[1.85rem] font-semibold leading-[1.15] tracking-tight sm:text-4xl md:text-5xl">
           Who is cheapest today?
         </h1>

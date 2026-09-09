@@ -49,6 +49,13 @@ export const listCategories = createServerFn({ method: "GET" }).handler(async ()
   `;
 });
 
+export const getCatalogStats = createServerFn({ method: "GET" }).handler(async () => {
+  const sql = await getSql();
+  const [{ n: storeCount }] = await sql<{ n: number }>`select count(*)::int as n from stores`;
+  const [{ n: productCount }] = await sql<{ n: number }>`select count(*)::int as n from products`;
+  return { storeCount, productCount };
+});
+
 export const searchProducts = createServerFn({ method: "GET" })
   .validator((input: { q?: string; category?: string }) => input)
   .handler(async ({ data }) => {
