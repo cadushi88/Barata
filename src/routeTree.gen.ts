@@ -14,8 +14,8 @@ import { Route as ContributeRouteImport } from './routes/contribute'
 import { Route as ListRouteImport } from './routes/list'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PlanRouteImport } from './routes/plan'
-import { Route as StoresRouteImport } from './routes/stores'
 import { Route as ProductsIdRouteImport } from './routes/products.$id'
+import { Route as StoresIndexRouteImport } from './routes/stores.index'
 import { Route as StoresIdRouteImport } from './routes/stores.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
@@ -44,20 +44,20 @@ const PlanRoute = PlanRouteImport.update({
   path: '/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StoresRoute = StoresRouteImport.update({
-  id: '/stores',
-  path: '/stores',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProductsIdRoute = ProductsIdRouteImport.update({
   id: '/products/$id',
   path: '/products/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StoresIndexRoute = StoresIndexRouteImport.update({
+  id: '/stores/',
+  path: '/stores/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StoresIdRoute = StoresIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => StoresRoute,
+  id: '/stores/$id',
+  path: '/stores/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -71,9 +71,9 @@ export interface FileRoutesByFullPath {
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
   '/plan': typeof PlanRoute
-  '/stores': typeof StoresRouteWithChildren
   '/products/$id': typeof ProductsIdRoute
   '/stores/$id': typeof StoresIdRoute
+  '/stores/': typeof StoresIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
@@ -82,9 +82,9 @@ export interface FileRoutesByTo {
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
   '/plan': typeof PlanRoute
-  '/stores': typeof StoresRouteWithChildren
   '/products/$id': typeof ProductsIdRoute
   '/stores/$id': typeof StoresIdRoute
+  '/stores': typeof StoresIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -94,9 +94,9 @@ export interface FileRoutesById {
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
   '/plan': typeof PlanRoute
-  '/stores': typeof StoresRouteWithChildren
   '/products/$id': typeof ProductsIdRoute
   '/stores/$id': typeof StoresIdRoute
+  '/stores/': typeof StoresIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -107,9 +107,9 @@ export interface FileRouteTypes {
     | '/list'
     | '/login'
     | '/plan'
-    | '/stores'
     | '/products/$id'
     | '/stores/$id'
+    | '/stores/'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -118,9 +118,9 @@ export interface FileRouteTypes {
     | '/list'
     | '/login'
     | '/plan'
-    | '/stores'
     | '/products/$id'
     | '/stores/$id'
+    | '/stores'
     | '/api/auth/$'
   id:
     | '__root__'
@@ -129,9 +129,9 @@ export interface FileRouteTypes {
     | '/list'
     | '/login'
     | '/plan'
-    | '/stores'
     | '/products/$id'
     | '/stores/$id'
+    | '/stores/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -141,8 +141,9 @@ export interface RootRouteChildren {
   ListRoute: typeof ListRoute
   LoginRoute: typeof LoginRoute
   PlanRoute: typeof PlanRoute
-  StoresRoute: typeof StoresRouteWithChildren
   ProductsIdRoute: typeof ProductsIdRoute
+  StoresIdRoute: typeof StoresIdRoute
+  StoresIndexRoute: typeof StoresIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -183,13 +184,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlanRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/stores': {
-      id: '/stores'
-      path: '/stores'
-      fullPath: '/stores'
-      preLoaderRoute: typeof StoresRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/products/$id': {
       id: '/products/$id'
       path: '/products/$id'
@@ -197,12 +191,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProductsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/stores/': {
+      id: '/stores/'
+      path: '/stores'
+      fullPath: '/stores/'
+      preLoaderRoute: typeof StoresIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/stores/$id': {
       id: '/stores/$id'
-      path: '/$id'
+      path: '/stores/$id'
       fullPath: '/stores/$id'
       preLoaderRoute: typeof StoresIdRouteImport
-      parentRoute: typeof StoresRoute
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -214,25 +215,15 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface StoresRouteChildren {
-  StoresIdRoute: typeof StoresIdRoute
-}
-
-const StoresRouteChildren: StoresRouteChildren = {
-  StoresIdRoute: StoresIdRoute,
-}
-
-const StoresRouteWithChildren =
-  StoresRoute._addFileChildren(StoresRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ContributeRoute: ContributeRoute,
   ListRoute: ListRoute,
   LoginRoute: LoginRoute,
   PlanRoute: PlanRoute,
-  StoresRoute: StoresRouteWithChildren,
   ProductsIdRoute: ProductsIdRoute,
+  StoresIdRoute: StoresIdRoute,
+  StoresIndexRoute: StoresIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
