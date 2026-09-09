@@ -40,6 +40,14 @@ function ListPage() {
   if (!user) return <RedirectToSignIn />;
 
   const winner = basket.data?.stores[0];
+  const winnerLines = winner?.lines.filter((l) => l.amount != null) ?? [];
+  const whatsappText = winner
+    ? encodeURIComponent(
+        `Hi! I'd like to order these items from ${winner.store.name}:\n\n` +
+          winnerLines.map((l) => `• ${l.name}`).join("\n") +
+          `\n\nTotal (Barata estimate): ${xcg(winner.total)}\nCould you confirm availability and delivery? Thank you!`,
+      )
+    : "";
 
   return (
     <Shell>
@@ -91,9 +99,45 @@ function ListPage() {
                     {i === 0 && winner ? <div className="text-xs text-good">Best complete total</div> : null}
                   </div>
                 </div>
+                {i === 0 && winner ? (
+                  <a
+                    href={`https://wa.me/?text=${whatsappText}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-good/10 px-4 text-sm font-medium text-good"
+                  >
+                    Request this order via WhatsApp →
+                  </a>
+                ) : null}
               </div>
             ))}
           </div>
+
+          {basket.data?.splitSavings && basket.data.splitSavings.maxSavings > 0 ? (
+            <div className="mt-6 rounded-2xl border border-line bg-surface p-4">
+              <h3 className="font-medium">
+                {basket.data.splitSavings.worthIt ? "Worth splitting your trip?" : "Splitting wouldn't really help"}
+              </h3>
+              <p className="mt-1 text-sm text-muted">
+                Some items are cheaper elsewhere — like Mangusa having cheaper chicken even when Goisco wins overall.
+                Buying every single item at whichever store has it cheapest would cost{" "}
+                <span className="font-medium tabular-nums text-ink">{xcg(basket.data.splitSavings.mixAndMatchTotal)}</span>,
+                a maximum possible saving of{" "}
+                <span className="font-medium tabular-nums text-good">{xcg(basket.data.splitSavings.maxSavings)}</span> — but
+                it means visiting {basket.data.splitSavings.storeCount}{" "}
+                {basket.data.splitSavings.storeCount === 1 ? "store" : "different stores"}
+                {basket.data.splitSavings.storeNames.length
+                  ? ` (${basket.data.splitSavings.storeNames.join(", ")})`
+                  : ""}
+                {" "}instead of one.
+              </p>
+              <p className="mt-2 text-xs text-faint">
+                {basket.data.splitSavings.worthIt
+                  ? "That's a meaningful saving for a manageable number of stops — might be worth it if those stores are on your way."
+                  : "The saving is small relative to the extra stops, or would take too many stores — for most people, the one-stop total above is the better call once you factor in time and fuel."}
+              </p>
+            </div>
+          ) : null}
         </>
       )}
     </Shell>

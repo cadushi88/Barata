@@ -134,7 +134,23 @@ export const cheapestBasket = createServerFn({ method: "GET" })
   .validator((input: { productIds: number[] }) => input)
   .handler(async ({ data }) => {
     const ids = data.productIds.filter((n) => Number.isFinite(n));
-    if (ids.length === 0) return { stores: [] as { store: StoreRow; total: number; missing: number; lines: { product_id: number; name: string; amount: number | null }[] }[] };
+    if (ids.length === 0)
+      return {
+        stores: [] as {
+          store: StoreRow;
+          total: number;
+          missing: number;
+          lines: { product_id: number; name: string; amount: number | null }[];
+        }[],
+        splitSavings: null as {
+          mixAndMatchTotal: number;
+          storeCount: number;
+          storeNames: string[];
+          maxSavings: number;
+          worthIt: boolean;
+          perItem: { product_id: number; store: StoreRow; amount: number; name: string }[];
+        } | null,
+      };
     const sql = await getSql();
     const stores = await sql<StoreRow>`select id, name, area, address, hours, price_tier from stores`;
     const latest = await sql<{ product_id: number; store_id: string; amount: string; name: string }>`
@@ -167,7 +183,54 @@ export const cheapestBasket = createServerFn({ method: "GET" })
       if (a.missing !== b.missing) return a.missing - b.missing;
       return a.total - b.total;
     });
-    return { stores: result };
+
+    // Mix-and-match: what if you bought each item at whichever store has it cheapest?
+    // This is the "chicken is cheaper at Mangusa, but the whole bill is cheaper at Goisco"
+    // comparison — shows the ceiling on savings from splitting your trip, and how many
+    // stops that would actually take, so the person can weigh it against the hassle.
+    const perItemBest = ids.map((id) => {
+      let best: { store: StoreRow; amount: number; name: string } | null = null;
+      for (const s of result) {
+        const line = s.lines.find((l) => l.product_id === id);
+        if (line?.amount != null && (!best || line.amount < best.amount)) {
+          best = { store: s.store, amount: line.amount, name: line.name };
+        }
+      }
+      return best ? { product_id: id, ...best } : null;
+    });
+    const foundBest = perItemBest.filter((b): b is NonNullable<typeof b> => b !== null);
+    const mixAndMatchTotal = foundBest.reduce((s, b) => s + b.amount, 0);
+    const storesNeeded = new Set(foundBest.map((b) => b.store.id));
+    const oneStopBest = result.find((s) => s.missing === 0) ?? result[0];
+    const maxSavings = oneStopBest ? Math.max(0, oneStopBest.total - mixAndMatchTotal) : 0;
+
+    return {
+      stores: result,
+      splitSavings: {
+        mixAndMatchTotal,
+        storeCount: storesNeeded.size,
+        storeNames: [...storesNeeded].map((id) => result.find((r) => r.store.id === id)?.store.name).filter(Boolean),
+        maxSavings,
+        worthIt: maxSavings > 15 && storesNeeded.size <= 3, // rough heuristic: meaningful savings, not too many stops
+        perItem: foundBest,
+      },
+    };
+  });
+
+export const getPriceHistory = createServerFn({ method: "GET" })
+  .validator((input: { id: number }) => input)
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    // Full history (not just latest-per-store) so we can chart how each store's price
+    // has moved over time — useful for spotting a genuine trend vs. a one-off cheap receipt.
+    const rows = await sql<{ store_id: string; store_name: string; amount: string; observed_at: string }>`
+      select p.store_id, s.name as store_name, p.amount::text as amount, p.observed_at::text as observed_at
+      from prices p
+      join stores s on s.id = p.store_id
+      where p.product_id = ${data.id}
+      order by p.observed_at asc
+    `;
+    return rows.map((r) => ({ ...r, amount: Number(r.amount) }));
   });
 
 export const addPrice = createServerFn({ method: "POST" })
