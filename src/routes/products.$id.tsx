@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell } from "@/components/shell";
-import { addToList, getProduct, listStores, addPrice } from "@/lib/server/catalog";
+import { addToList, getProduct, getPriceHistory, listStores, addPrice } from "@/lib/server/catalog";
 import { xcg, num } from "@/lib/money";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { ProductPhoto } from "@/components/product-photo";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 export const Route = createFileRoute("/products/$id")({ component: ProductPage });
 
@@ -15,6 +16,7 @@ function ProductPage() {
   const { user } = useCurrentUserState();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["product", pid], queryFn: () => getProduct({ data: { id: pid } }) });
+  const history = useQuery({ queryKey: ["price-history", pid], queryFn: () => getPriceHistory({ data: { id: pid } }) });
   const stores = useQuery({ queryKey: ["stores"], queryFn: () => listStores() });
   const [storeId, setStoreId] = useState("");
   const [amount, setAmount] = useState("");
@@ -34,6 +36,29 @@ function ProductPage() {
   const product = q.data?.product;
   const prices = q.data?.prices ?? [];
   const min = prices.length ? Math.min(...prices.map((p) => num(p.amount))) : 0;
+
+  // Build a chart-friendly series: one row per date, one column per store, with each
+  // store's price forward-filled between observations (a price holds until it's updated
+  // again — this is standard for price-history charts, not fabricated data).
+  const chart = useMemo(() => {
+    const rows = history.data ?? [];
+    const storeNames = [...new Set(rows.map((r) => r.store_name))];
+    const dates = [...new Set(rows.map((r) => r.observed_at.slice(0, 10)))].sort();
+    const latestByStore: Record<string, number> = {};
+    const series = dates.map((date) => {
+      const point: Record<string, string | number> = { date };
+      for (const r of rows.filter((x) => x.observed_at.slice(0, 10) === date)) {
+        latestByStore[r.store_name] = r.amount;
+      }
+      for (const name of storeNames) {
+        if (latestByStore[name] !== undefined) point[name] = latestByStore[name];
+      }
+      return point;
+    });
+    return { series, storeNames, hasEnoughData: dates.length >= 2 };
+  }, [history.data]);
+
+  const chartColors = ["#0E6E5E", "#D98E4A", "#6B7570", "#0A5548", "#B0562F", "#3B6E8F"];
 
   return (
     <Shell>
@@ -133,6 +158,51 @@ function ProductPage() {
               </tbody>
             </table>
           </div>
+
+          {chart.hasEnoughData ? (
+            <div className="mt-6 rounded-2xl border border-line bg-surface p-4">
+              <h2 className="font-medium">Price history</h2>
+              <p className="mt-1 text-xs text-faint">
+                Shown as the last known price at each store between updates — not every day is a new observation.
+              </p>
+              <div className="mt-3 h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chart.series} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}`} width={40} />
+                    <Tooltip formatter={(v: number) => xcg(v)} />
+                    {chart.storeNames.map((name, i) => (
+                      <Line
+                        key={name}
+                        type="stepAfter"
+                        dataKey={name}
+                        stroke={chartColors[i % chartColors.length]}
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        connectNulls
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                {chart.storeNames.map((name, i) => (
+                  <span key={name} className="inline-flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ background: chartColors[i % chartColors.length] }}
+                    />
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : history.data && history.data.length > 0 ? (
+            <p className="mt-6 text-sm text-faint">
+              Only one price point recorded so far — history will appear here once more prices come in over time.
+            </p>
+          ) : null}
 
           {user ? (
             <form
