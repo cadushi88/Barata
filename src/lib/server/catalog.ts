@@ -101,6 +101,10 @@ export const searchProducts = createServerFn({ method: "GET" })
 export const getProduct = createServerFn({ method: "GET" })
   .validator((input: { id: number }) => input)
   .handler(async ({ data }) => {
+    // A hand-typed URL like /products/abc reaches us as NaN. Treat it as "no such
+    // product" rather than letting Postgres reject the parameter — otherwise the
+    // page sits on a blank skeleton while React Query retries the failing call.
+    if (!Number.isSafeInteger(data.id)) return { product: null, prices: [] as PriceRow[] };
     const sql = await getSql();
     const products = await sql<ProductRow>`
       select id, slug, name, brand, category, unit, needs_review from products where id = ${data.id}
@@ -232,6 +236,7 @@ export const cheapestBasket = createServerFn({ method: "GET" })
 export const getPriceHistory = createServerFn({ method: "GET" })
   .validator((input: { id: number }) => input)
   .handler(async ({ data }) => {
+    if (!Number.isSafeInteger(data.id)) return [];
     const sql = await getSql();
     // Full history (not just latest-per-store) so we can chart how each store's price
     // has moved over time — useful for spotting a genuine trend vs. a one-off cheap receipt.
