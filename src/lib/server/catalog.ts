@@ -137,26 +137,53 @@ export const getStore = createServerFn({ method: "GET" })
     return { store, items };
   });
 
+export type BasketLine = {
+  product_id: number;
+  name: string;
+  /** Quantity requested from the shopping list. */
+  qty: number;
+  /** Unit price at this store, or null when the store doesn't carry the item. */
+  amount: number | null;
+  /** `amount * qty`, or null when the store doesn't carry the item. */
+  lineTotal: number | null;
+};
+
+export type BasketStore = {
+  store: StoreRow;
+  total: number;
+  missing: number;
+  lines: BasketLine[];
+};
+
+export type SplitSavings = {
+  mixAndMatchTotal: number;
+  /** Total at the cheapest store that carries EVERY item, or null when none does. */
+  oneStopTotal: number | null;
+  storeCount: number;
+  storeNames: string[];
+  maxSavings: number;
+  worthIt: boolean;
+  perItem: { product_id: number; store: StoreRow; amount: number; qty: number; lineTotal: number; name: string }[];
+};
+
 export const cheapestBasket = createServerFn({ method: "GET" })
-  .validator((input: { productIds: number[] }) => input)
+  .validator((input: { items: { productId: number; qty?: number }[] }) => input)
   .handler(async ({ data }) => {
-    const ids = data.productIds.filter((n) => Number.isFinite(n));
+    // Collapse duplicates and normalize quantities: the shopping list stores a qty
+    // per product, and a basket of "3 x milk" must cost three times one milk.
+    const wanted = new Map<number, number>();
+    for (const it of data.items ?? []) {
+      const id = Number(it?.productId);
+      if (!Number.isInteger(id) || id <= 0) continue;
+      const qty = Number(it?.qty);
+      const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
+      wanted.set(id, (wanted.get(id) ?? 0) + safeQty);
+    }
+    const ids = [...wanted.keys()];
     if (ids.length === 0)
       return {
-        stores: [] as {
-          store: StoreRow;
-          total: number;
-          missing: number;
-          lines: { product_id: number; name: string; amount: number | null }[];
-        }[],
-        splitSavings: null as {
-          mixAndMatchTotal: number;
-          storeCount: number;
-          storeNames: string[];
-          maxSavings: number;
-          worthIt: boolean;
-          perItem: { product_id: number; store: StoreRow; amount: number; name: string }[];
-        } | null,
+        stores: [] as BasketStore[],
+        splitSavings: null as SplitSavings | null,
       };
     const sql = await getSql();
     const stores = await sql<StoreRow>`select id, name, area, address, hours, price_tier from stores`;
@@ -175,15 +202,22 @@ export const cheapestBasket = createServerFn({ method: "GET" })
       list.push({ product_id: row.product_id, name: row.name, amount: Number(row.amount) });
       byStore.set(row.store_id, list);
     }
-    const result = stores.map((store) => {
+    const result: BasketStore[] = stores.map((store) => {
       const found = byStore.get(store.id) ?? [];
       const map = new Map(found.map((f) => [f.product_id, f]));
-      const lines = ids.map((id) => {
+      const lines: BasketLine[] = ids.map((id) => {
         const f = map.get(id);
-        return { product_id: id, name: f?.name ?? `#${id}`, amount: f ? f.amount : null };
+        const qty = wanted.get(id) ?? 1;
+        return {
+          product_id: id,
+          name: f?.name ?? `#${id}`,
+          qty,
+          amount: f ? f.amount : null,
+          lineTotal: f ? f.amount * qty : null,
+        };
       });
-      const priced = lines.filter((l) => l.amount != null) as { product_id: number; name: string; amount: number }[];
-      const total = priced.reduce((s, l) => s + l.amount, 0);
+      const priced = lines.filter((l) => l.lineTotal != null);
+      const total = priced.reduce((s, l) => s + (l.lineTotal ?? 0), 0);
       return { store, total, missing: ids.length - priced.length, lines };
     });
     result.sort((a, b) => {
@@ -196,32 +230,42 @@ export const cheapestBasket = createServerFn({ method: "GET" })
     // comparison — shows the ceiling on savings from splitting your trip, and how many
     // stops that would actually take, so the person can weigh it against the hassle.
     const perItemBest = ids.map((id) => {
-      let best: { store: StoreRow; amount: number; name: string } | null = null;
+      let best: { store: StoreRow; amount: number; qty: number; lineTotal: number; name: string } | null = null;
       for (const s of result) {
         const line = s.lines.find((l) => l.product_id === id);
         if (line?.amount != null && (!best || line.amount < best.amount)) {
-          best = { store: s.store, amount: line.amount, name: line.name };
+          best = {
+            store: s.store,
+            amount: line.amount,
+            qty: line.qty,
+            lineTotal: line.lineTotal ?? line.amount * line.qty,
+            name: line.name,
+          };
         }
       }
       return best ? { product_id: id, ...best } : null;
     });
     const foundBest = perItemBest.filter((b): b is NonNullable<typeof b> => b !== null);
-    const mixAndMatchTotal = foundBest.reduce((s, b) => s + b.amount, 0);
+    const mixAndMatchTotal = foundBest.reduce((s, b) => s + b.lineTotal, 0);
     const storesNeeded = new Set(foundBest.map((b) => b.store.id));
-    const oneStopBest = result.find((s) => s.missing === 0) ?? result[0];
+    // Only a store that carries EVERY item is a real one-stop alternative. Falling back
+    // to the fewest-missing store would compare its *partial* basket against the full
+    // mix-and-match basket and invent a saving out of the items it simply doesn't stock.
+    const oneStopBest = result.find((s) => s.missing === 0) ?? null;
     const maxSavings = oneStopBest ? Math.max(0, oneStopBest.total - mixAndMatchTotal) : 0;
 
-    return {
-      stores: result,
-      splitSavings: {
-        mixAndMatchTotal,
-        storeCount: storesNeeded.size,
-        storeNames: [...storesNeeded].map((id) => result.find((r) => r.store.id === id)?.store.name).filter(Boolean),
-        maxSavings,
-        worthIt: maxSavings > 15 && storesNeeded.size <= 3, // rough heuristic: meaningful savings, not too many stops
-        perItem: foundBest,
-      },
+    const splitSavings: SplitSavings = {
+      mixAndMatchTotal,
+      oneStopTotal: oneStopBest ? oneStopBest.total : null,
+      storeCount: storesNeeded.size,
+      storeNames: [...storesNeeded]
+        .map((id) => result.find((r) => r.store.id === id)?.store.name)
+        .filter((n): n is string => Boolean(n)),
+      maxSavings,
+      worthIt: maxSavings > 15 && storesNeeded.size <= 3, // rough heuristic: meaningful savings, not too many stops
+      perItem: foundBest,
     };
+    return { stores: result, splitSavings };
   });
 
 export const getPriceHistory = createServerFn({ method: "GET" })

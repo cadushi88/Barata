@@ -17,11 +17,13 @@ function ListPage() {
     queryFn: () => getList(),
     enabled: !!user,
   });
-  const ids = (list.data ?? []).map((r) => r.id);
+  // Quantities matter: two litres of milk cost twice one litre, so the basket
+  // comparison has to be told how many of each item the list holds.
+  const items = (list.data ?? []).map((r) => ({ productId: r.id, qty: num(r.qty) > 0 ? num(r.qty) : 1 }));
   const basket = useQuery({
-    queryKey: ["basket", ids.join(",")],
-    queryFn: () => cheapestBasket({ data: { productIds: ids } }),
-    enabled: ids.length > 0,
+    queryKey: ["basket", items.map((i) => `${i.productId}x${i.qty}`).join(",")],
+    queryFn: () => cheapestBasket({ data: { items } }),
+    enabled: items.length > 0,
   });
   const rm = useMutation({
     mutationFn: (productId: number) => removeFromList({ data: { productId } }),
@@ -44,7 +46,7 @@ function ListPage() {
   const whatsappText = winner
     ? encodeURIComponent(
         `Hi! I'd like to order these items from ${winner.store.name}:\n\n` +
-          winnerLines.map((l) => `• ${l.name}`).join("\n") +
+          winnerLines.map((l) => `• ${l.qty > 1 ? `${l.qty} × ` : ""}${l.name}`).join("\n") +
           `\n\nTotal (Barata estimate): ${xcg(winner.total)}\nCould you confirm availability and delivery? Thank you!`,
       )
     : "";
@@ -95,8 +97,20 @@ function ListPage() {
                   </div>
                   <div className="text-right">
                     <div className="font-medium tabular-nums">{xcg(s.total)}</div>
-                    {s.missing ? <div className="text-xs text-warn">{s.missing} items missing</div> : null}
-                    {i === 0 && winner ? <div className="text-xs text-good">Best complete total</div> : null}
+                    {s.missing ? (
+                      <div className="text-xs text-warn">
+                        {s.missing} {s.missing === 1 ? "item" : "items"} missing
+                      </div>
+                    ) : null}
+                    {/* Only a store carrying every item has a comparable total — the others
+                        are cheaper simply because they're ringing up fewer things. */}
+                    {i === 0 ? (
+                      s.missing === 0 ? (
+                        <div className="text-xs text-good">Best complete total</div>
+                      ) : (
+                        <div className="text-xs text-muted">Partial total — no store has everything</div>
+                      )
+                    ) : null}
                   </div>
                 </div>
                 {i === 0 && winner ? (
