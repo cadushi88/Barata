@@ -27,17 +27,47 @@ const REAL_PHOTOS: Record<string, string> = {
 
   // Pantry
   "rice-1kg": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=80",
+  // Blue Ribbon and Camil are confirmed real rice brands (researched, not assumed) -
+  // "bruin"/"wit" is Dutch for brown/white, matching their brown/white rice lines.
+  // Excludes "Nika" and "Orient Star" - could not confirm what those brands actually are.
+  "blue-ribbon-bruin-5-lb": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=80",
+  "blue-ribbon-wit-5-lb": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=80",
+  "camil-bruin-2-lb": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=80",
   "rice-5kg": "https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=600&q=80",
   "pasta-500": "https://images.unsplash.com/photo-1551462147-378704645ec2?w=600&q=80",
   "flour-1kg": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  // Wheat/corn flour brands - same product type as flour-1kg, different brand/pack size.
+  "flag-4-4-lbs": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  "gold-self-rising-5-lbs": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  "gold-medal-all-purpose-5-lbs": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  "gold-medal-all-purpose-12-lbs": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  "robin-hood-5-lbs": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  "phoebe-1-lb": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
   "sugar-1kg": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  // Sugar brands - same product type as sugar-1kg, different brand/pack size.
+  "eagle-2-lbs": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  "eagle-4-lbs": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  "king-sugar-4-lbs": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  "manuelita-2-kg": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  "manuelita-1-kg": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  "royal-2-lbs": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
   "oil-1l": "https://images.unsplash.com/photo-1474979266404-7ea32081f3e9?w=600&q=80",
   "olive-oil": "https://images.unsplash.com/photo-1474979266404-7ea32081f3e9?w=600&q=80",
   "salt": "https://images.unsplash.com/photo-1518110925495-5fe2fda0442a?w=600&q=80",
   "tomato-paste": "https://images.unsplash.com/photo-1592419044706-39796d40f98c?w=600&q=80",
+  // Tomato paste brands - same product type as tomato-paste, different brand.
+  "alfresco-500-gr": "https://images.unsplash.com/photo-1592419044706-39796d40f98c?w=600&q=80",
+  "kingtom-370-gr": "https://images.unsplash.com/photo-1592419044706-39796d40f98c?w=600&q=80",
+  "tropic-500-gr": "https://images.unsplash.com/photo-1592419044706-39796d40f98c?w=600&q=80",
   "ketchup": "https://images.unsplash.com/photo-1528756514091-dee5ecaa3278?w=600&q=80",
   "peanut-butter": "https://images.unsplash.com/photo-1621939514649-c8f9a0f0c0e0?w=600&q=80",
+  // "Pindakaas Creamy Calvé" - pindakaas is Dutch for peanut butter (pinda=peanut, kaas=cheese).
+  "pindakaas-creamy-calve-350-gr": "https://images.unsplash.com/photo-1621939514649-c8f9a0f0c0e0?w=600&q=80",
   "cornflakes": "https://images.unsplash.com/photo-1521483451569-e338407c3fc0?w=600&q=80",
+  // "Kellogg's Corn Flakes" - same product, brand name.
+  "kellog-s-18-oz": "https://images.unsplash.com/photo-1521483451569-e338407c3fc0?w=600&q=80",
+  "kellog-s-9-6-oz": "https://images.unsplash.com/photo-1521483451569-e338407c3fc0?w=600&q=80",
+  "kellog-s-12-oz": "https://images.unsplash.com/photo-1521483451569-e338407c3fc0?w=600&q=80",
 
   // Meat & Seafood
   "chicken-fillet": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=600&q=80",
@@ -113,8 +143,12 @@ const REAL_PHOTOS: Record<string, string> = {
   // "Wortel Jumbo" - wortel (Dutch/Papiamentu: carrot).
   "wortel-jumbo-p-kg": "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600&q=80",
   "papaya": "https://images.unsplash.com/photo-1617112848923-cc2234396a8d?w=600&q=80",
+  // "Papaya (hintè hechu)" - same fruit, hintè hechu is a ripeness/variety descriptor.
+  "papaya-hinte-hechu-per-kilo": "https://images.unsplash.com/photo-1617112848923-cc2234396a8d?w=600&q=80",
   "mango": "https://images.unsplash.com/photo-1553279768-865429fa0078?w=600&q=80",
   "avocado": "https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=600&q=80",
+  // "Advocado" - spelling variant of avocado, same fruit.
+  "advocado-p-kg": "https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=600&q=80",
   "lime": "https://images.unsplash.com/photo-1582979512210-99b6a53386f9?w=600&q=80",
   // "Lamunchi" (Papiamentu: lime) - distinct from "citroen" (lemon), which is not mapped.
   "lamunchi-p-kg": "https://images.unsplash.com/photo-1582979512210-99b6a53386f9?w=600&q=80",
