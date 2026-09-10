@@ -1,4 +1,7 @@
-node_modules/
+# No trailing slash: a trailing-slash pattern only matches a real directory,
+# not a symlink named node_modules — which is what per-agent git worktrees use
+# to avoid a full reinstall, so it would otherwise show up as untracked there.
+node_modules
 .project_id
 .github_repo
 .env
