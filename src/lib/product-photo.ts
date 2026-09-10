@@ -41,34 +41,88 @@ const REAL_PHOTOS: Record<string, string> = {
 
   // Meat & Seafood
   "chicken-fillet": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=600&q=80",
+  // "Chicken Breast" - breast is fillet.
+  "chicken-breast-1-kg": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=600&q=80",
   "chicken-whole": "https://images.unsplash.com/photo-1587593810167-a84920ea13a4?w=600&q=80",
+  // "Galiña Hinter" - galiña (chicken) hinter (whole).
+  "galina-hinter-1500-stuk": "https://images.unsplash.com/photo-1587593810167-a84920ea13a4?w=600&q=80",
   "ground-beef": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
   "beef-round": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
   "sirloin": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
+  // "Beefmulá/Tartaar", "Karni Mulá", "Beefsteak Mulá" - mulá (Papiamentu: ground/minced) beef.
+  "beefmula-tartaar-1-kg": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
+  "karni-mula-1-kg": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
+  "beefsteak-mula-1-kg": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
   "shoulder-ham": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
+  // "Schouderham (slice)" - Dutch for sliced shoulder ham, same product as shoulder-ham.
+  "schouderham-slice-1-kg": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
   "bacon": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
   "sausage": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
+  // "Wòrst dushi/salu (slice)" - wòrst (Papiamentu/Dutch: sausage).
+  "worst-dushi-slice-1-kg": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
+  "worst-salu-slice-1-kg": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
   "ham-sliced": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
+  "turkey-ham-slice-1-kg": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
   "fish-fillet": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&q=80",
   "shrimp": "https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=600&q=80",
 
-  // Produce
+  // Produce - Papiamentu/Dutch terms verified before mapping (see commit notes)
   "apples": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600&q=80",
+  // "Apel" (Dutch/Papiamentu: apple), Golden/Red Delicious, various pack sizes.
+  "apel-golden-delicious-per-kilo": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600&q=80",
+  "apel-golden-delicious-per-stuk": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600&q=80",
+  "apel-red-delicious-3-stuks": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600&q=80",
+  "apel-red-delicious-per-kilo": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600&q=80",
+  "apel-red-delicious-per-stuk": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600&q=80",
   "bananas": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600&q=80",
+  "banana-p-st": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600&q=80",
+  "banana-p-kg": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600&q=80",
+  // "Bananen (bakoba)" - bakoba is the Papiamentu word for banana.
+  "bananen-bakoba-per-kilo": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600&q=80",
   "oranges": "https://images.unsplash.com/photo-1547514701-42782101795e?w=600&q=80",
+  // "Apelsina" (Papiamentu: orange, confirmed - not a generic "citrus").
+  "apelsina-7-stuks": "https://images.unsplash.com/photo-1547514701-42782101795e?w=600&q=80",
+  "apelsina-4-stuks": "https://images.unsplash.com/photo-1547514701-42782101795e?w=600&q=80",
+  "apelsina-per-stuk": "https://images.unsplash.com/photo-1547514701-42782101795e?w=600&q=80",
+  "apelsina-per-kilo": "https://images.unsplash.com/photo-1547514701-42782101795e?w=600&q=80",
+  // "Mandarijn" (mandarin) - close enough to an orange in appearance to share, like the
+  // existing bananas/plantain pairing below.
+  "mandarijn-per-kilo": "https://images.unsplash.com/photo-1547514701-42782101795e?w=600&q=80",
   "tomatoes": "https://images.unsplash.com/photo-1546090191-0d68a3c3e5b0?w=600&q=80",
+  // "Tomati venezolano" - tomati (Papiamentu: tomato).
+  "tomati-venezolano-p-kg": "https://images.unsplash.com/photo-1546090191-0d68a3c3e5b0?w=600&q=80",
   "potatoes": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600&q=80",
+  // "Batata (hulandes)" - hulandes (Papiamentu: Dutch) potato, i.e. a regular potato, as
+  // opposed to batata dushi (sweet potato, left unmapped - visually different).
+  "batata-hulandes-p-kg": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600&q=80",
   "onions": "https://images.unsplash.com/photo-1518977956812-cd3faec11a5e?w=600&q=80",
+  // "Siboyo" (Papiamentu: onion). Excludes "siboyo largu" (long/spring onion - visually
+  // a different, thin green vegetable, not a bulb onion).
+  "siboyo-normal-p-kg": "https://images.unsplash.com/photo-1518977956812-cd3faec11a5e?w=600&q=80",
+  "siboyo-kora-p-kg": "https://images.unsplash.com/photo-1518977956812-cd3faec11a5e?w=600&q=80",
   "lettuce": "https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?w=600&q=80",
   "cucumber": "https://images.unsplash.com/photo-1449300079323-02e209ef9c47?w=600&q=80",
+  // "Komkomber salada" - komkomber (Dutch/Papiamentu: cucumber).
+  "komkomber-salada-p-kg": "https://images.unsplash.com/photo-1449300079323-02e209ef9c47?w=600&q=80",
   "peppers": "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=600&q=80",
+  // "Promentòn" (Papiamentu: bell pepper), berde/gel/kòrá = green/yellow/red.
+  "promenton-berde-p-kg": "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=600&q=80",
+  "promenton-gel-p-kg": "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=600&q=80",
+  "promenton-kora-p-kg": "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=600&q=80",
   "carrot": "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600&q=80",
+  // "Wortel Jumbo" - wortel (Dutch/Papiamentu: carrot).
+  "wortel-jumbo-p-kg": "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600&q=80",
   "papaya": "https://images.unsplash.com/photo-1617112848923-cc2234396a8d?w=600&q=80",
   "mango": "https://images.unsplash.com/photo-1553279768-865429fa0078?w=600&q=80",
   "avocado": "https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=600&q=80",
   "lime": "https://images.unsplash.com/photo-1582979512210-99b6a53386f9?w=600&q=80",
+  // "Lamunchi" (Papiamentu: lime) - distinct from "citroen" (lemon), which is not mapped.
+  "lamunchi-p-kg": "https://images.unsplash.com/photo-1582979512210-99b6a53386f9?w=600&q=80",
   "plantain": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600&q=80",
   "cabbage": "https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=600&q=80",
+  // "Kolo blanku/kòrá" - kolo (Papiamentu: cabbage, from Dutch "kool"), blanku/kòrá = white/red.
+  "kolo-blanku-p-kg": "https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=600&q=80",
+  "kolo-kora-p-kg": "https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=600&q=80",
   "garlic": "https://images.unsplash.com/photo-1540148426949-6bb3a0c0632a?w=600&q=80",
   "ginger": "https://images.unsplash.com/photo-1599940824399-b87987ceb72a?w=600&q=80",
 
