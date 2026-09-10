@@ -146,7 +146,7 @@ function Home() {
                 </div>
                 {save > 0.2 ? (
                   <p className="mt-2 text-xs text-good">
-                    Spread {xcg(save)} vs the dearest store
+                    Spread {xcg(save)} vs the most expensive store
                   </p>
                 ) : null}
                 <div className="mt-3 flex gap-2">

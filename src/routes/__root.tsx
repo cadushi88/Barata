@@ -3,6 +3,7 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Barata";
@@ -17,6 +18,7 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#14160f", media: "(prefers-color-scheme: dark)" },
       { name: "description", content: "Compare supermarket prices across Curaçao. Find who is cheapest." },
     ],
+    scripts: [{ children: THEME_INIT_SCRIPT }],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },

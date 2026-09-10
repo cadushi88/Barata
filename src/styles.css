@@ -21,25 +21,58 @@
 }
 
 /*
- * Dark mode follows the OS/browser preference (no manual toggle). Every
+ * Dark mode defaults to the OS/browser preference, but a manual choice (the
+ * header toggle, persisted to localStorage and applied as data-theme on
+ * <html> before paint - see src/lib/theme.ts) overrides it either way. Every
  * component styles against the semantic tokens above (bg-bg, text-ink,
  * border-line, ...) rather than raw Tailwind palette classes, so redeclaring
  * the tokens here re-themes the whole app without touching component code.
+ * The dark values are named once below and referenced from both the
+ * system-preference rule and the explicit data-theme="dark" override so
+ * they can't drift apart.
  */
+:root {
+  --dark-bg: #14160f;
+  --dark-surface: #1d2016;
+  --dark-ink: #f1ede1;
+  --dark-muted: #a8ad9b;
+  --dark-faint: #868c76;
+  --dark-line: #33372a;
+  --dark-primary: #3ecba0;
+  --dark-primary-fg: #0b1410;
+  --dark-leaf: #6bbd8f;
+  --dark-warn: #e2874a;
+  --dark-good: #4cbd82;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #14160f;
-    --color-surface: #1d2016;
-    --color-ink: #f1ede1;
-    --color-muted: #a8ad9b;
-    --color-faint: #868c76;
-    --color-line: #33372a;
-    --color-primary: #3ecba0;
-    --color-primary-fg: #0b1410;
-    --color-leaf: #6bbd8f;
-    --color-warn: #e2874a;
-    --color-good: #4cbd82;
+  :root:not([data-theme="light"]) {
+    --color-bg: var(--dark-bg);
+    --color-surface: var(--dark-surface);
+    --color-ink: var(--dark-ink);
+    --color-muted: var(--dark-muted);
+    --color-faint: var(--dark-faint);
+    --color-line: var(--dark-line);
+    --color-primary: var(--dark-primary);
+    --color-primary-fg: var(--dark-primary-fg);
+    --color-leaf: var(--dark-leaf);
+    --color-warn: var(--dark-warn);
+    --color-good: var(--dark-good);
   }
+}
+
+:root[data-theme="dark"] {
+  --color-bg: var(--dark-bg);
+  --color-surface: var(--dark-surface);
+  --color-ink: var(--dark-ink);
+  --color-muted: var(--dark-muted);
+  --color-faint: var(--dark-faint);
+  --color-line: var(--dark-line);
+  --color-primary: var(--dark-primary);
+  --color-primary-fg: var(--dark-primary-fg);
+  --color-leaf: var(--dark-leaf);
+  --color-warn: var(--dark-warn);
+  --color-good: var(--dark-good);
 }
 
 @layer base {
