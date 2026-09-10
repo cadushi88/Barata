@@ -122,6 +122,10 @@ export const searchProducts = createServerFn({ method: "GET" })
 export const getProduct = createServerFn({ method: "GET" })
   .validator((input: { id: number }) => z.object({ id: z.number().int().positive() }).parse(input))
   .handler(async ({ data }) => {
+    // A hand-typed URL like /products/abc reaches us as NaN. Treat it as "no such
+    // product" rather than letting Postgres reject the parameter — otherwise the
+    // page sits on a blank skeleton while React Query retries the failing call.
+    if (!Number.isSafeInteger(data.id)) return { product: null, prices: [] as PriceRow[] };
     const sql = await getSql();
     const products = await sql<ProductRow>`
       select id, slug, name, brand, category, unit, needs_review from products where id = ${data.id}
@@ -191,6 +195,8 @@ export type SplitSavings = {
   mixAndMatchTotal: number;
   /** Total at the cheapest store that carries EVERY item, or null when none does. */
   oneStopTotal: number | null;
+  /** Whether any store carries every item — when false, `maxSavings` is 0 by definition, not "no benefit to splitting". */
+  oneStopComplete: boolean;
   storeCount: number;
   storeNames: string[];
   maxSavings: number;
@@ -232,6 +238,12 @@ export const cheapestBasket = createServerFn({ method: "GET" })
       };
     const sql = await getSql();
     const stores = await sql<StoreRow>`select id, name, area, address, hours, price_tier from stores`;
+    // Names come from the catalog, not from the price join, so a line a store does
+    // not stock still reads as the product's name instead of a bare "#123".
+    const named = await sql<{ id: number; name: string }>`
+      select id, name from products where id = any(${ids})
+    `;
+    const nameById = new Map(named.map((p) => [p.id, p.name]));
     const latest = await sql<{ product_id: number; store_id: string; amount: string; name: string }>`
       select distinct on (p.product_id, p.store_id)
         p.product_id, p.store_id, p.amount::text as amount, pr.name
@@ -256,9 +268,11 @@ export const cheapestBasket = createServerFn({ method: "GET" })
       const lines: BasketLine[] = ids.map((id) => {
         const f = map.get(id);
         const qty = wanted.get(id) ?? 1;
+        // Names come from the catalog, not just the price join, so a line a store does
+        // not stock still reads as the product's name instead of a bare "#123".
         return {
           product_id: id,
-          name: f?.name ?? `#${id}`,
+          name: nameById.get(id) ?? f?.name ?? `#${id}`,
           qty,
           amount: f ? f.amount : null,
           lineTotal: f ? f.amount * qty : null,
@@ -299,12 +313,15 @@ export const cheapestBasket = createServerFn({ method: "GET" })
     // Only a store that carries EVERY item is a real one-stop alternative. Falling back
     // to the fewest-missing store would compare its *partial* basket against the full
     // mix-and-match basket and invent a saving out of the items it simply doesn't stock.
+    // When no store is complete, splitting isn't a real choice, so say so explicitly
+    // instead of silently hiding the block or reporting a manufactured saving of zero.
     const oneStopBest = result.find((s) => s.missing === 0) ?? null;
     const maxSavings = oneStopBest ? Math.max(0, oneStopBest.total - mixAndMatchTotal) : 0;
 
     const splitSavings: SplitSavings = {
       mixAndMatchTotal,
       oneStopTotal: oneStopBest ? oneStopBest.total : null,
+      oneStopComplete: oneStopBest !== null,
       storeCount: storesNeeded.size,
       storeNames: [...storesNeeded]
         .map((id) => result.find((r) => r.store.id === id)?.store.name)
@@ -319,6 +336,7 @@ export const cheapestBasket = createServerFn({ method: "GET" })
 export const getPriceHistory = createServerFn({ method: "GET" })
   .validator((input: { id: number }) => z.object({ id: z.number().int().positive() }).parse(input))
   .handler(async ({ data }) => {
+    if (!Number.isSafeInteger(data.id)) return [];
     const sql = await getSql();
     // Full history (not just latest-per-store) so we can chart how each store's price
     // has moved over time — useful for spotting a genuine trend vs. a one-off cheap receipt.

@@ -5,7 +5,7 @@ import { listStores, searchProducts } from "@/lib/server/catalog";
 import { commitReceipt, parseReceipt } from "@/lib/server/receipts";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { RedirectToSignIn } from "@/lib/auth/gates";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { xcg } from "@/lib/money";
 
 export const Route = createFileRoute("/contribute")({ component: ContributePage });
@@ -21,6 +21,9 @@ function ContributePage() {
   const [storeManuallySet, setStoreManuallySet] = useState(false);
   const [purchaseDate, setPurchaseDate] = useState<string>("");
   const [imageDataUrl, setImageDataUrl] = useState<string | undefined>();
+  // `isPending` only flips on the next render, so two clicks in the same tick both get
+  // through and we parse (and store) the same receipt twice. The ref closes that window.
+  const parsing = useRef(false);
   const parse = useMutation({
     mutationFn: () => parseReceipt({ data: { text, storeId, imageDataUrl } }),
     onSuccess: (res) => {
@@ -28,6 +31,9 @@ function ContributePage() {
       // Only auto-apply the AI's detected store if the user hasn't already picked one themselves.
       if (!storeManuallySet && res.detectedStoreId) setStoreId(res.detectedStoreId);
       if (res.purchaseDate) setPurchaseDate(res.purchaseDate);
+    },
+    onSettled: () => {
+      parsing.current = false;
     },
   });
   const commit = useMutation({
@@ -63,6 +69,8 @@ function ContributePage() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
+            if (parsing.current) return;
+            parsing.current = true;
             parse.mutate();
           }}
         >
@@ -134,6 +142,14 @@ function ContributePage() {
             {parse.isPending ? "Reading receipt…" : "Read with AI"}
           </button>
           {parse.data && !parse.data.ok ? <p className="text-sm text-warn">{parse.data.error}</p> : null}
+          {/* A throw (e.g. receipt text past the 20 000-character server limit) leaves
+              `data` undefined, so without this the button click did nothing at all. */}
+          {parse.isError ? (
+            <p className="text-sm text-warn">
+              Could not read that receipt
+              {text.length > 20000 ? " — it is too long, try splitting it up" : ", please try again"}.
+            </p>
+          ) : null}
         </form>
 
         <div className="rounded-2xl border border-line bg-surface p-4">
