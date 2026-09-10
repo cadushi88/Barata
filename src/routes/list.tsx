@@ -96,7 +96,11 @@ function ListPage() {
                     <div className="text-xs text-muted">{s.store.area}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-medium tabular-nums">{xcg(s.total)}</div>
+                    {/* A store that stocks none of the basket has a total of 0, which
+                        reads as "free" rather than "nothing to price here". */}
+                    <div className="font-medium tabular-nums">
+                      {xcg(s.missing === s.lines.length ? null : s.total)}
+                    </div>
                     {s.missing ? (
                       <div className="text-xs text-warn">
                         {s.missing} {s.missing === 1 ? "item" : "items"} missing

@@ -62,10 +62,16 @@ export const searchProducts = createServerFn({ method: "GET" })
     const sql = await getSql();
     const q = (data.q ?? "").trim().toLowerCase();
     const cat = (data.category ?? "").trim();
+    // `%` and `_` are LIKE wildcards, so an unescaped query typed by a shopper is
+    // matched as a pattern: "_" listed the entire catalog and "100%" matched any
+    // name containing "100". Escape them (and the escape char) to search literally.
+    const like = "%" + q.replace(/([\\%_])/g, "\\$1") + "%";
     const products = await sql<ProductRow>`
       select id, slug, name, brand, category, unit, needs_review
       from products
-      where (${q.length === 0} or lower(name) like ${"%" + q + "%"} or lower(coalesce(brand,'')) like ${"%" + q + "%"})
+      where (${q.length === 0}
+             or lower(name) like ${like} escape '\\'
+             or lower(coalesce(brand,'')) like ${like} escape '\\')
         and (${cat.length === 0} or category = ${cat})
       order by name
     `;
