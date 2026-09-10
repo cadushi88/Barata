@@ -91,7 +91,7 @@ function ProductPage() {
             <Link to="/" className="text-muted">Catalog</Link> / {product.category}
           </p>
           <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,22rem)_1fr] md:items-start">
-            <ProductPhoto slug={product.slug} name={product.name} category={product.category} size="hero" />
+            <ProductPhoto slug={product.slug} name={product.name} size="hero" />
             <div>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
             <div>
