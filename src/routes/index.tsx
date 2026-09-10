@@ -116,7 +116,7 @@ function Home() {
             return (
               <article key={p.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
                 <Link to="/products/$id" params={{ id: String(p.id) }} className="block no-underline">
-                  <ProductPhoto slug={p.slug} name={p.name} size="card" />
+                  <ProductPhoto slug={p.slug} name={p.name} category={p.category} size="card" />
                 </Link>
                 <div className="p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -146,7 +146,7 @@ function Home() {
                 </div>
                 {save > 0.2 ? (
                   <p className="mt-2 text-xs text-good">
-                    Spread {xcg(save)} vs the dearest store
+                    Spread {xcg(save)} vs the most expensive store
                   </p>
                 ) : null}
                 <div className="mt-3 flex gap-2">

@@ -61,7 +61,7 @@ function ContributePage() {
     <Shell>
       <h1 className="font-display text-2xl font-semibold md:text-3xl">Update prices</h1>
       <p className="mt-2 max-w-xl text-sm text-muted md:text-base">
-        Paste a receipt or type the lines. Grok reads the items, sorts them by category and price, and matches them to the catalog.
+        Paste a receipt or type the lines. Claude reads the items, sorts them by category and price, and matches them to the catalog.
       </p>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

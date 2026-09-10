@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { LayoutGrid, Store, ClipboardList, Camera, UserRound } from "lucide-react";
 
 const tabs = [
@@ -45,6 +46,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
             {isPending ? (
               <div className="h-9 w-9 animate-pulse rounded-full bg-line" />
             ) : user ? (

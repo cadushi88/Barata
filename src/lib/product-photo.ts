@@ -101,9 +101,28 @@ const REAL_PHOTOS: Record<string, string> = {
 };
 
 /**
- * Returns a real product photo URL.
- * Falls back to local path if no real photo is mapped yet.
+ * One representative real photo per catalog category, used when a product
+ * has no photo of its own. Reuses URLs already in REAL_PHOTOS above (so
+ * every fallback is a photo already known to load) rather than a blank box.
  */
-export function productPhoto(slug: string): string {
-  return REAL_PHOTOS[slug] ?? `/products/${slug}.jpg`;
+const CATEGORY_PHOTOS: Record<string, string> = {
+  Dairy: REAL_PHOTOS["milk-1l"],
+  Bakery: REAL_PHOTOS["bread-white"],
+  Pantry: REAL_PHOTOS["rice-1kg"],
+  Meat: REAL_PHOTOS["chicken-fillet"],
+  Produce: REAL_PHOTOS["apples"],
+  Drinks: REAL_PHOTOS["water-6"],
+  Frozen: REAL_PHOTOS["frozen-fries"],
+  Snacks: REAL_PHOTOS["chips"],
+  Household: REAL_PHOTOS["detergent"],
+  "Personal Care": REAL_PHOTOS["soap"],
+  Baby: REAL_PHOTOS["diapers"],
+};
+
+/**
+ * Returns a photo URL for a product: its own real photo if mapped, otherwise
+ * a representative photo for its category, so a card is never left blank.
+ */
+export function productPhoto(slug: string, category?: string): string | undefined {
+  return REAL_PHOTOS[slug] ?? (category ? CATEGORY_PHOTOS[category] : undefined);
 }
