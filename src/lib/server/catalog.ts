@@ -164,11 +164,18 @@ export const cheapestBasket = createServerFn({ method: "GET" })
           storeNames: string[];
           maxSavings: number;
           worthIt: boolean;
+          oneStopComplete: boolean;
           perItem: { product_id: number; store: StoreRow; amount: number; name: string }[];
         } | null,
       };
     const sql = await getSql();
     const stores = await sql<StoreRow>`select id, name, area, address, hours, price_tier from stores`;
+    // Names come from the catalog, not from the price join, so a line a store does
+    // not stock still reads as the product's name instead of a bare "#123".
+    const named = await sql<{ id: number; name: string }>`
+      select id, name from products where id = any(${ids})
+    `;
+    const nameById = new Map(named.map((p) => [p.id, p.name]));
     const latest = await sql<{ product_id: number; store_id: string; amount: string; name: string }>`
       select distinct on (p.product_id, p.store_id)
         p.product_id, p.store_id, p.amount::text as amount, pr.name
@@ -189,7 +196,7 @@ export const cheapestBasket = createServerFn({ method: "GET" })
       const map = new Map(found.map((f) => [f.product_id, f]));
       const lines = ids.map((id) => {
         const f = map.get(id);
-        return { product_id: id, name: f?.name ?? `#${id}`, amount: f ? f.amount : null };
+        return { product_id: id, name: nameById.get(id) ?? f?.name ?? `#${id}`, amount: f ? f.amount : null };
       });
       const priced = lines.filter((l) => l.amount != null) as { product_id: number; name: string; amount: number }[];
       const total = priced.reduce((s, l) => s + l.amount, 0);
@@ -217,7 +224,11 @@ export const cheapestBasket = createServerFn({ method: "GET" })
     const foundBest = perItemBest.filter((b): b is NonNullable<typeof b> => b !== null);
     const mixAndMatchTotal = foundBest.reduce((s, b) => s + b.amount, 0);
     const storesNeeded = new Set(foundBest.map((b) => b.store.id));
-    const oneStopBest = result.find((s) => s.missing === 0) ?? result[0];
+    // The one-stop baseline is only comparable to the mix-and-match total when a single
+    // store actually stocks the whole list — otherwise we would be pitting a 5-item bill
+    // against a 6-item one and reporting the shortfall as a saving of zero. When no store
+    // is complete, splitting isn't a choice, so say so instead of silently hiding the block.
+    const oneStopBest = result.find((s) => s.missing === 0) ?? null;
     const maxSavings = oneStopBest ? Math.max(0, oneStopBest.total - mixAndMatchTotal) : 0;
 
     return {
@@ -228,6 +239,7 @@ export const cheapestBasket = createServerFn({ method: "GET" })
         storeNames: [...storesNeeded].map((id) => result.find((r) => r.store.id === id)?.store.name).filter(Boolean),
         maxSavings,
         worthIt: maxSavings > 15 && storesNeeded.size <= 3, // rough heuristic: meaningful savings, not too many stops
+        oneStopComplete: oneStopBest !== null,
         perItem: foundBest,
       },
     };
