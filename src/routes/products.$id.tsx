@@ -5,7 +5,7 @@ import { addToList, getProduct, getPriceHistory, listStores, addPrice } from "@/
 import { xcg, num } from "@/lib/money";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { ProductPhoto } from "@/components/product-photo";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 export const Route = createFileRoute("/products/$id")({ component: ProductPage });
@@ -24,12 +24,19 @@ function ProductPage() {
     mutationFn: () => addToList({ data: { productId: pid } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["list"] }),
   });
+  // `isPending` only flips on the next render, so two clicks landing in the same tick
+  // both pass it and insert the price twice. The ref closes that window synchronously.
+  const submitting = useRef(false);
   const addP = useMutation({
     mutationFn: () => addPrice({ data: { productId: pid, storeId, amount: Number(amount) } }),
     onSuccess: () => {
       setAmount("");
       qc.invalidateQueries({ queryKey: ["product", pid] });
       qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["price-history", pid] });
+    },
+    onSettled: () => {
+      submitting.current = false;
     },
   });
 
@@ -209,7 +216,11 @@ function ProductPage() {
               className="mt-6 grid gap-3 rounded-2xl border border-line bg-surface p-4 sm:flex sm:flex-wrap sm:items-end"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (storeId && Number(amount) > 0) addP.mutate();
+                if (submitting.current) return;
+                if (storeId && Number(amount) > 0) {
+                  submitting.current = true;
+                  addP.mutate();
+                }
               }}
             >
               <label className="block text-sm sm:flex-1">
@@ -238,8 +249,12 @@ function ProductPage() {
                   required
                 />
               </label>
-              <button type="submit" className="h-11 w-full rounded-xl bg-ink px-4 text-sm text-bg sm:w-auto">
-                Submit price
+              <button
+                type="submit"
+                disabled={addP.isPending}
+                className="h-11 w-full rounded-xl bg-ink px-4 text-sm text-bg disabled:opacity-60 sm:w-auto"
+              >
+                {addP.isPending ? "Saving…" : "Submit price"}
               </button>
               {addP.isSuccess ? <span className="text-sm text-good">Saved</span> : null}
               {addP.isError ? <span className="text-sm text-warn">Could not save</span> : null}
