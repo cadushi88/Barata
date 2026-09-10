@@ -13,7 +13,8 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: APP_NAME },
-      { name: "theme-color", content: "#0F6E5C" },
+      { name: "theme-color", content: "#f6f1e8", media: "(prefers-color-scheme: light)" },
+      { name: "theme-color", content: "#14160f", media: "(prefers-color-scheme: dark)" },
       { name: "description", content: "Compare supermarket prices across Curaçao. Find who is cheapest." },
     ],
     links: [

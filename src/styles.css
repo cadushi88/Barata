@@ -20,7 +20,32 @@
   --radius-xl: 28px;
 }
 
+/*
+ * Dark mode follows the OS/browser preference (no manual toggle). Every
+ * component styles against the semantic tokens above (bg-bg, text-ink,
+ * border-line, ...) rather than raw Tailwind palette classes, so redeclaring
+ * the tokens here re-themes the whole app without touching component code.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #14160f;
+    --color-surface: #1d2016;
+    --color-ink: #f1ede1;
+    --color-muted: #a8ad9b;
+    --color-faint: #868c76;
+    --color-line: #33372a;
+    --color-primary: #3ecba0;
+    --color-primary-fg: #0b1410;
+    --color-leaf: #6bbd8f;
+    --color-warn: #e2874a;
+    --color-good: #4cbd82;
+  }
+}
+
 @layer base {
+  :root {
+    color-scheme: light dark;
+  }
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
