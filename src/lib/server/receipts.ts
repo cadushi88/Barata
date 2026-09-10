@@ -202,13 +202,18 @@ Receipt text:\n${data.text || "(image only)"}`,
       // line visible with its real total, but never let it be published as a price.
       const missingUnitPrice = declaredWeighed && !isWeighed;
       const recordedAmount = isWeighed ? perKg : Number(it.amount);
+      // commitReceipt's validator requires a positive amount, and it validates the
+      // WHOLE batch — so a single zero or negative line (a refund, a discount row,
+      // a misread "0.00") would reject every price on the receipt. Such a line is
+      // not a price anyway: keep it unmatched so it never reaches the publish call.
+      const publishable = matched && !missingUnitPrice && recordedAmount > 0;
       items.push({
         name: String(it.name),
         amount: recordedAmount,
         qty: Number(it.qty) || 1,
         unit: isWeighed ? "kg" : it.unit ?? null,
         category: it.category ?? (matched ? catalog.find((c) => c.id === best!.id)?.category : "Pantry"),
-        productId: matched && !missingUnitPrice ? best!.id : null,
+        productId: publishable ? best!.id : null,
         matchedName: matched ? best!.name : null,
         isWeighed,
         missingUnitPrice,
