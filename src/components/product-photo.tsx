@@ -4,10 +4,12 @@ import { useState } from "react";
 export function ProductPhoto({
   slug,
   name,
+  category,
   size = "card",
 }: {
   slug: string;
   name: string;
+  category?: string;
   size?: "card" | "hero" | "thumb";
 }) {
   const [failed, setFailed] = useState(false);
@@ -18,7 +20,9 @@ export function ProductPhoto({
         ? "h-14 w-14 shrink-0 rounded-xl"
         : "aspect-[4/3] w-full rounded-none";
 
-  if (failed) {
+  const src = productPhoto(slug, category);
+
+  if (failed || !src) {
     return (
       <div className={`bg-line/50 ${box}`} aria-hidden />
     );
@@ -26,7 +30,7 @@ export function ProductPhoto({
 
   return (
     <img
-      src={productPhoto(slug)}
+      src={src}
       alt={name}
       className={`object-cover ${box}`}
       onError={() => setFailed(true)}
