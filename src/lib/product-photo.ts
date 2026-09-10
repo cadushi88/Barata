@@ -12,9 +12,17 @@ const REAL_PHOTOS: Record<string, string> = {
   // Dairy
   "milk-1l": "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=600&q=80",
   "uht-milk": "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=600&q=80",
+  // Confirmed real liquid-milk-in-carton products (not the canned/powdered lines from the
+  // same brands, which were deliberately left unmapped as a different packaging form).
+  "friesche-vlag-halfvolle-1-ltr": "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=600&q=80",
+  "friesche-vlag-magere-1-ltr": "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=600&q=80",
+  "gloria-vollemelk-1-ltr": "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=600&q=80",
+  "sane-halfvolle-1-ltr": "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=600&q=80",
   "yogurt-1l": "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=600&q=80",
   "butter-250": "https://images.unsplash.com/photo-1589985270826-4b7fe135a9c4?w=600&q=80",
   "cheese-gouda": "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=600&q=80",
+  // "Jonge kaas" - Dutch for "young cheese", a young Gouda-style cheese.
+  "jonge-kaas-1-kg": "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=600&q=80",
   "cheese-cheddar": "https://images.unsplash.com/photo-1618164436241-4473940d1f5c?w=600&q=80",
   "eggs-12": "https://images.unsplash.com/photo-1582722875186-4d1d2b1c5b0e?w=600&q=80",
   "cheese-slices": "https://images.unsplash.com/photo-1452195100486-9ccf7bb1fd2d?w=600&q=80",
@@ -27,17 +35,60 @@ const REAL_PHOTOS: Record<string, string> = {
 
   // Pantry
   "rice-1kg": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=80",
+  // Blue Ribbon and Camil are confirmed real rice brands (researched, not assumed) -
+  // "bruin"/"wit" is Dutch for brown/white, matching their brown/white rice lines.
+  // Excludes "Nika" and "Orient Star" - could not confirm what those brands actually are.
+  "blue-ribbon-bruin-5-lb": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=80",
+  "blue-ribbon-wit-5-lb": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=80",
+  "camil-bruin-2-lb": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=80",
   "rice-5kg": "https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=600&q=80",
   "pasta-500": "https://images.unsplash.com/photo-1551462147-378704645ec2?w=600&q=80",
+  // Gallo and Honig are confirmed real dry-pasta brands making elbow macaroni.
+  "gallo-macaroni-elbow-250-gr": "https://images.unsplash.com/photo-1551462147-378704645ec2?w=600&q=80",
+  "macaroni-elbow-honig-700-gr": "https://images.unsplash.com/photo-1551462147-378704645ec2?w=600&q=80",
   "flour-1kg": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  // Wheat/corn flour brands - same product type as flour-1kg, different brand/pack size.
+  "flag-4-4-lbs": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  "gold-self-rising-5-lbs": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  "gold-medal-all-purpose-5-lbs": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  "gold-medal-all-purpose-12-lbs": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  "robin-hood-5-lbs": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
+  "phoebe-1-lb": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
   "sugar-1kg": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  // Sugar brands - same product type as sugar-1kg, different brand/pack size.
+  "eagle-2-lbs": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  "eagle-4-lbs": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  "king-sugar-4-lbs": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  "manuelita-2-kg": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  "manuelita-1-kg": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
+  "royal-2-lbs": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600&q=80",
   "oil-1l": "https://images.unsplash.com/photo-1474979266404-7ea32081f3e9?w=600&q=80",
   "olive-oil": "https://images.unsplash.com/photo-1474979266404-7ea32081f3e9?w=600&q=80",
+  // Badia, Goya (Puro line), Vigo, and Wesseon/Wesson are confirmed real bottled cooking
+  // oil brands (extra virgin olive oil / canola oil) - same product type as oil-1l/olive-oil.
+  "badia-extra-virgin-250-ml": "https://images.unsplash.com/photo-1474979266404-7ea32081f3e9?w=600&q=80",
+  "badia-extra-virgin-500-ml": "https://images.unsplash.com/photo-1474979266404-7ea32081f3e9?w=600&q=80",
+  "goya-puro-17-oz": "https://images.unsplash.com/photo-1474979266404-7ea32081f3e9?w=600&q=80",
+  "vigo-extra-virgin-250-ml": "https://images.unsplash.com/photo-1474979266404-7ea32081f3e9?w=600&q=80",
+  "vigo-olive-oil-100-pure-250-ml": "https://images.unsplash.com/photo-1474979266404-7ea32081f3e9?w=600&q=80",
+  "wesseon-canola-oil-40-oz": "https://images.unsplash.com/photo-1474979266404-7ea32081f3e9?w=600&q=80",
   "salt": "https://images.unsplash.com/photo-1518110925495-5fe2fda0442a?w=600&q=80",
   "tomato-paste": "https://images.unsplash.com/photo-1592419044706-39796d40f98c?w=600&q=80",
+  // Tomato paste brands - same product type as tomato-paste, different brand.
+  "alfresco-500-gr": "https://images.unsplash.com/photo-1592419044706-39796d40f98c?w=600&q=80",
+  "kingtom-370-gr": "https://images.unsplash.com/photo-1592419044706-39796d40f98c?w=600&q=80",
+  "tropic-500-gr": "https://images.unsplash.com/photo-1592419044706-39796d40f98c?w=600&q=80",
+  // Hunt's is a confirmed real tomato paste brand.
+  "hunt-s-paste-6-oz": "https://images.unsplash.com/photo-1592419044706-39796d40f98c?w=600&q=80",
   "ketchup": "https://images.unsplash.com/photo-1528756514091-dee5ecaa3278?w=600&q=80",
   "peanut-butter": "https://images.unsplash.com/photo-1621939514649-c8f9a0f0c0e0?w=600&q=80",
+  // "Pindakaas Creamy Calvé" - pindakaas is Dutch for peanut butter (pinda=peanut, kaas=cheese).
+  "pindakaas-creamy-calve-350-gr": "https://images.unsplash.com/photo-1621939514649-c8f9a0f0c0e0?w=600&q=80",
   "cornflakes": "https://images.unsplash.com/photo-1521483451569-e338407c3fc0?w=600&q=80",
+  // "Kellogg's Corn Flakes" - same product, brand name.
+  "kellog-s-18-oz": "https://images.unsplash.com/photo-1521483451569-e338407c3fc0?w=600&q=80",
+  "kellog-s-9-6-oz": "https://images.unsplash.com/photo-1521483451569-e338407c3fc0?w=600&q=80",
+  "kellog-s-12-oz": "https://images.unsplash.com/photo-1521483451569-e338407c3fc0?w=600&q=80",
 
   // Meat & Seafood
   "chicken-fillet": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=600&q=80",
@@ -53,6 +104,7 @@ const REAL_PHOTOS: Record<string, string> = {
   "beefmula-tartaar-1-kg": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
   "karni-mula-1-kg": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
   "beefsteak-mula-1-kg": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
+  "karni-stoba-mula-1-kg": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
   "shoulder-ham": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
   // "Schouderham (slice)" - Dutch for sliced shoulder ham, same product as shoulder-ham.
   "schouderham-slice-1-kg": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
@@ -113,8 +165,12 @@ const REAL_PHOTOS: Record<string, string> = {
   // "Wortel Jumbo" - wortel (Dutch/Papiamentu: carrot).
   "wortel-jumbo-p-kg": "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600&q=80",
   "papaya": "https://images.unsplash.com/photo-1617112848923-cc2234396a8d?w=600&q=80",
+  // "Papaya (hintè hechu)" - same fruit, hintè hechu is a ripeness/variety descriptor.
+  "papaya-hinte-hechu-per-kilo": "https://images.unsplash.com/photo-1617112848923-cc2234396a8d?w=600&q=80",
   "mango": "https://images.unsplash.com/photo-1553279768-865429fa0078?w=600&q=80",
   "avocado": "https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=600&q=80",
+  // "Advocado" - spelling variant of avocado, same fruit.
+  "advocado-p-kg": "https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=600&q=80",
   "lime": "https://images.unsplash.com/photo-1582979512210-99b6a53386f9?w=600&q=80",
   // "Lamunchi" (Papiamentu: lime) - distinct from "citroen" (lemon), which is not mapped.
   "lamunchi-p-kg": "https://images.unsplash.com/photo-1582979512210-99b6a53386f9?w=600&q=80",
@@ -124,15 +180,30 @@ const REAL_PHOTOS: Record<string, string> = {
   "kolo-blanku-p-kg": "https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=600&q=80",
   "kolo-kora-p-kg": "https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=600&q=80",
   "garlic": "https://images.unsplash.com/photo-1540148426949-6bb3a0c0632a?w=600&q=80",
+  // "Konoflo" is a Papiamentu variant of Dutch "knoflook" - garlic.
+  "konoflo-p-kg": "https://images.unsplash.com/photo-1540148426949-6bb3a0c0632a?w=600&q=80",
   "ginger": "https://images.unsplash.com/photo-1599940824399-b87987ceb72a?w=600&q=80",
 
   // Drinks
   "water-6": "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=600&q=80",
   "cola-2l": "https://images.unsplash.com/photo-1629203851122-3726ecdf080e?w=600&q=80",
+  // "Fria" is Curaçao's own carbonated soft drink brand; the row lists Coca-Cola as the
+  // (first) option for this line, which is literally cola.
+  "coca-cola-fria-lokal-2-ltr": "https://images.unsplash.com/photo-1629203851122-3726ecdf080e?w=600&q=80",
+  "coca-cola-fria-lokal-1-ltr": "https://images.unsplash.com/photo-1629203851122-3726ecdf080e?w=600&q=80",
   "juice-1l": "https://images.unsplash.com/photo-1600271886742-f049cd062baf?w=600&q=80",
+  // Baggio, Ceres, and Gloria are confirmed real ready-to-drink fruit juice brands sold in
+  // 1L cartons - not the Sunquick concentrate line, left unmapped as a different form.
+  "baggio-pronto-peer-1-ltr": "https://images.unsplash.com/photo-1600271886742-f049cd062baf?w=600&q=80",
+  "ceres-apple-1-ltr": "https://images.unsplash.com/photo-1600271886742-f049cd062baf?w=600&q=80",
+  "gloria-orange-1-ltr": "https://images.unsplash.com/photo-1600271886742-f049cd062baf?w=600&q=80",
   "beer-24": "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80",
   "coffee-250": "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=600&q=80",
   "tea-20": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&q=80",
+  // Crown, Hardon, and Lipton Yellow Label are all boxed tea bags, same product type.
+  "crown-20-stuks": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&q=80",
+  "hardon-25-stuks": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&q=80",
+  "lipton-yellow-label-20-stuks": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&q=80",
 
   // Frozen & Snacks
   "frozen-fries": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80",
@@ -145,8 +216,16 @@ const REAL_PHOTOS: Record<string, string> = {
 
   // Household & Baby
   "paper-towel": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600&q=80",
+  // Toilet paper/bathroom tissue - same shared tier as paper-towel already in the code.
+  "noky-12-stuks": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600&q=80",
+  "softex-12-stuks": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600&q=80",
+  "tp": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600&q=80",
   "detergent": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&q=80",
   "soap": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&q=80",
+  // Confirmed real dish soap products - same photo tier already used for "soap" above.
+  "jab-28-oz": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&q=80",
+  "palmolive-original-12-oz": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&q=80",
+  "tempo-56-oz": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&q=80",
   "diapers": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=600&q=80",
 };
 
