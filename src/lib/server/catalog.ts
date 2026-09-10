@@ -56,16 +56,39 @@ export const getCatalogStats = createServerFn({ method: "GET" }).handler(async (
   return { storeCount, productCount };
 });
 
+/**
+ * Upper bound on a single reported price (XCG). Enforced on EVERY path that
+ * writes to `prices` — manual reports and receipt commits alike — so no endpoint
+ * becomes the soft spot for poisoning the public catalog.
+ */
+export const MAX_PRICE_XCG = 9999;
+
+/** How many products one basket comparison may span (the comparison is O(ids²·stores)). */
+const MAX_BASKET_ITEMS = 500;
+
 export const searchProducts = createServerFn({ method: "GET" })
-  .validator((input: { q?: string; category?: string }) => input)
+  .validator((input: { q?: string; category?: string }) =>
+    z
+      .object({
+        q: z.string().max(200).optional(),
+        category: z.string().max(80).optional(),
+      })
+      .parse(input ?? {}),
+  )
   .handler(async ({ data }) => {
     const sql = await getSql();
     const q = (data.q ?? "").trim().toLowerCase();
     const cat = (data.category ?? "").trim();
+    // `%` and `_` are LIKE wildcards, so an unescaped query typed by a shopper is
+    // matched as a pattern: "_" listed the entire catalog and "100%" matched any
+    // name containing "100". Escape them (and the escape char) to search literally.
+    const like = "%" + q.replace(/([\\%_])/g, "\\$1") + "%";
     const products = await sql<ProductRow>`
       select id, slug, name, brand, category, unit, needs_review
       from products
-      where (${q.length === 0} or lower(name) like ${"%" + q + "%"} or lower(coalesce(brand,'')) like ${"%" + q + "%"})
+      where (${q.length === 0}
+             or lower(name) like ${like} escape '\\'
+             or lower(coalesce(brand,'')) like ${like} escape '\\')
         and (${cat.length === 0} or category = ${cat})
       order by name
     `;
@@ -74,7 +97,10 @@ export const searchProducts = createServerFn({ method: "GET" })
         p.product_id, s.name as store_name, p.amount::text as amount
       from prices p
       join stores s on s.id = p.store_id
-      order by p.product_id, p.store_id, p.observed_at desc
+      -- p.id desc breaks observed_at ties deterministically (newest insert wins):
+      -- commitReceipt stamps every line of a receipt with the same purchase-date
+      -- timestamp, so a corrected re-upload would otherwise be a coin flip.
+      order by p.product_id, p.store_id, p.observed_at desc, p.id desc
     `;
     const byProduct = new Map<number, { amount: number; store: string }[]>();
     for (const row of latest) {
@@ -94,8 +120,12 @@ export const searchProducts = createServerFn({ method: "GET" })
   });
 
 export const getProduct = createServerFn({ method: "GET" })
-  .validator((input: { id: number }) => input)
+  .validator((input: { id: number }) => z.object({ id: z.number().int().positive() }).parse(input))
   .handler(async ({ data }) => {
+    // A hand-typed URL like /products/abc reaches us as NaN. Treat it as "no such
+    // product" rather than letting Postgres reject the parameter — otherwise the
+    // page sits on a blank skeleton while React Query retries the failing call.
+    if (!Number.isSafeInteger(data.id)) return { product: null, prices: [] as PriceRow[] };
     const sql = await getSql();
     const products = await sql<ProductRow>`
       select id, slug, name, brand, category, unit, needs_review from products where id = ${data.id}
@@ -108,14 +138,17 @@ export const getProduct = createServerFn({ method: "GET" })
       from prices p
       join stores s on s.id = p.store_id
       where p.product_id = ${data.id}
-      order by p.store_id, p.observed_at desc
+      -- p.id desc breaks observed_at ties deterministically (newest insert wins):
+      -- commitReceipt stamps every line of a receipt with the same purchase-date
+      -- timestamp, so a corrected re-upload would otherwise be a coin flip.
+      order by p.store_id, p.observed_at desc, p.id desc
     `;
     prices.sort((a, b) => Number(a.amount) - Number(b.amount));
     return { product, prices };
   });
 
 export const getStore = createServerFn({ method: "GET" })
-  .validator((input: { id: string }) => input)
+  .validator((input: { id: string }) => z.object({ id: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data }) => {
     const sql = await getSql();
     const stores = await sql<StoreRow>`
@@ -131,41 +164,95 @@ export const getStore = createServerFn({ method: "GET" })
       from products pr
       join prices p on p.product_id = pr.id
       where p.store_id = ${data.id}
-      order by pr.id, p.observed_at desc
+      -- p.id desc breaks observed_at ties deterministically (newest insert wins):
+      -- commitReceipt stamps every line of a receipt with the same purchase-date
+      -- timestamp, so a corrected re-upload would otherwise be a coin flip.
+      order by pr.id, p.observed_at desc, p.id desc
     `;
     items.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
     return { store, items };
   });
 
+export type BasketLine = {
+  product_id: number;
+  name: string;
+  /** Quantity requested from the shopping list. */
+  qty: number;
+  /** Unit price at this store, or null when the store doesn't carry the item. */
+  amount: number | null;
+  /** `amount * qty`, or null when the store doesn't carry the item. */
+  lineTotal: number | null;
+};
+
+export type BasketStore = {
+  store: StoreRow;
+  total: number;
+  missing: number;
+  lines: BasketLine[];
+};
+
+export type SplitSavings = {
+  mixAndMatchTotal: number;
+  /** Total at the cheapest store that carries EVERY item, or null when none does. */
+  oneStopTotal: number | null;
+  /** Whether any store carries every item — when false, `maxSavings` is 0 by definition, not "no benefit to splitting". */
+  oneStopComplete: boolean;
+  storeCount: number;
+  storeNames: string[];
+  maxSavings: number;
+  worthIt: boolean;
+  perItem: { product_id: number; store: StoreRow; amount: number; qty: number; lineTotal: number; name: string }[];
+};
+
 export const cheapestBasket = createServerFn({ method: "GET" })
-  .validator((input: { productIds: number[] }) => input)
+  .validator((input: { items: { productId: number; qty?: number }[] }) =>
+    z
+      .object({
+        // Bounded: the per-item "best store" pass is O(items² · stores), so an
+        // unbounded item list from a (public, unauthenticated) caller would pin
+        // the server until the request timed out.
+        items: z
+          .array(
+            z.object({
+              productId: z.number().int().positive(),
+              qty: z.number().positive().max(999).optional(),
+            }),
+          )
+          .max(MAX_BASKET_ITEMS),
+      })
+      .parse(input),
+  )
   .handler(async ({ data }) => {
-    const ids = data.productIds.filter((n) => Number.isFinite(n));
+    // Collapse duplicates and normalize quantities: the shopping list stores a qty
+    // per product, and a basket of "3 x milk" must cost three times one milk.
+    const wanted = new Map<number, number>();
+    for (const it of data.items) {
+      const safeQty = it.qty ?? 1;
+      wanted.set(it.productId, (wanted.get(it.productId) ?? 0) + safeQty);
+    }
+    const ids = [...wanted.keys()];
     if (ids.length === 0)
       return {
-        stores: [] as {
-          store: StoreRow;
-          total: number;
-          missing: number;
-          lines: { product_id: number; name: string; amount: number | null }[];
-        }[],
-        splitSavings: null as {
-          mixAndMatchTotal: number;
-          storeCount: number;
-          storeNames: string[];
-          maxSavings: number;
-          worthIt: boolean;
-          perItem: { product_id: number; store: StoreRow; amount: number; name: string }[];
-        } | null,
+        stores: [] as BasketStore[],
+        splitSavings: null as SplitSavings | null,
       };
     const sql = await getSql();
     const stores = await sql<StoreRow>`select id, name, area, address, hours, price_tier from stores`;
+    // Names come from the catalog, not from the price join, so a line a store does
+    // not stock still reads as the product's name instead of a bare "#123".
+    const named = await sql<{ id: number; name: string }>`
+      select id, name from products where id = any(${ids})
+    `;
+    const nameById = new Map(named.map((p) => [p.id, p.name]));
     const latest = await sql<{ product_id: number; store_id: string; amount: string; name: string }>`
       select distinct on (p.product_id, p.store_id)
         p.product_id, p.store_id, p.amount::text as amount, pr.name
       from prices p
       join products pr on pr.id = p.product_id
-      order by p.product_id, p.store_id, p.observed_at desc
+      -- p.id desc breaks observed_at ties deterministically (newest insert wins):
+      -- commitReceipt stamps every line of a receipt with the same purchase-date
+      -- timestamp, so a corrected re-upload would otherwise be a coin flip.
+      order by p.product_id, p.store_id, p.observed_at desc, p.id desc
     `;
     const idSet = new Set(ids);
     const byStore = new Map<string, { product_id: number; name: string; amount: number }[]>();
@@ -175,15 +262,24 @@ export const cheapestBasket = createServerFn({ method: "GET" })
       list.push({ product_id: row.product_id, name: row.name, amount: Number(row.amount) });
       byStore.set(row.store_id, list);
     }
-    const result = stores.map((store) => {
+    const result: BasketStore[] = stores.map((store) => {
       const found = byStore.get(store.id) ?? [];
       const map = new Map(found.map((f) => [f.product_id, f]));
-      const lines = ids.map((id) => {
+      const lines: BasketLine[] = ids.map((id) => {
         const f = map.get(id);
-        return { product_id: id, name: f?.name ?? `#${id}`, amount: f ? f.amount : null };
+        const qty = wanted.get(id) ?? 1;
+        // Names come from the catalog, not just the price join, so a line a store does
+        // not stock still reads as the product's name instead of a bare "#123".
+        return {
+          product_id: id,
+          name: nameById.get(id) ?? f?.name ?? `#${id}`,
+          qty,
+          amount: f ? f.amount : null,
+          lineTotal: f ? f.amount * qty : null,
+        };
       });
-      const priced = lines.filter((l) => l.amount != null) as { product_id: number; name: string; amount: number }[];
-      const total = priced.reduce((s, l) => s + l.amount, 0);
+      const priced = lines.filter((l) => l.lineTotal != null);
+      const total = priced.reduce((s, l) => s + (l.lineTotal ?? 0), 0);
       return { store, total, missing: ids.length - priced.length, lines };
     });
     result.sort((a, b) => {
@@ -196,37 +292,51 @@ export const cheapestBasket = createServerFn({ method: "GET" })
     // comparison — shows the ceiling on savings from splitting your trip, and how many
     // stops that would actually take, so the person can weigh it against the hassle.
     const perItemBest = ids.map((id) => {
-      let best: { store: StoreRow; amount: number; name: string } | null = null;
+      let best: { store: StoreRow; amount: number; qty: number; lineTotal: number; name: string } | null = null;
       for (const s of result) {
         const line = s.lines.find((l) => l.product_id === id);
         if (line?.amount != null && (!best || line.amount < best.amount)) {
-          best = { store: s.store, amount: line.amount, name: line.name };
+          best = {
+            store: s.store,
+            amount: line.amount,
+            qty: line.qty,
+            lineTotal: line.lineTotal ?? line.amount * line.qty,
+            name: line.name,
+          };
         }
       }
       return best ? { product_id: id, ...best } : null;
     });
     const foundBest = perItemBest.filter((b): b is NonNullable<typeof b> => b !== null);
-    const mixAndMatchTotal = foundBest.reduce((s, b) => s + b.amount, 0);
+    const mixAndMatchTotal = foundBest.reduce((s, b) => s + b.lineTotal, 0);
     const storesNeeded = new Set(foundBest.map((b) => b.store.id));
-    const oneStopBest = result.find((s) => s.missing === 0) ?? result[0];
+    // Only a store that carries EVERY item is a real one-stop alternative. Falling back
+    // to the fewest-missing store would compare its *partial* basket against the full
+    // mix-and-match basket and invent a saving out of the items it simply doesn't stock.
+    // When no store is complete, splitting isn't a real choice, so say so explicitly
+    // instead of silently hiding the block or reporting a manufactured saving of zero.
+    const oneStopBest = result.find((s) => s.missing === 0) ?? null;
     const maxSavings = oneStopBest ? Math.max(0, oneStopBest.total - mixAndMatchTotal) : 0;
 
-    return {
-      stores: result,
-      splitSavings: {
-        mixAndMatchTotal,
-        storeCount: storesNeeded.size,
-        storeNames: [...storesNeeded].map((id) => result.find((r) => r.store.id === id)?.store.name).filter(Boolean),
-        maxSavings,
-        worthIt: maxSavings > 15 && storesNeeded.size <= 3, // rough heuristic: meaningful savings, not too many stops
-        perItem: foundBest,
-      },
+    const splitSavings: SplitSavings = {
+      mixAndMatchTotal,
+      oneStopTotal: oneStopBest ? oneStopBest.total : null,
+      oneStopComplete: oneStopBest !== null,
+      storeCount: storesNeeded.size,
+      storeNames: [...storesNeeded]
+        .map((id) => result.find((r) => r.store.id === id)?.store.name)
+        .filter((n): n is string => Boolean(n)),
+      maxSavings,
+      worthIt: maxSavings > 15 && storesNeeded.size <= 3, // rough heuristic: meaningful savings, not too many stops
+      perItem: foundBest,
     };
+    return { stores: result, splitSavings };
   });
 
 export const getPriceHistory = createServerFn({ method: "GET" })
-  .validator((input: { id: number }) => input)
+  .validator((input: { id: number }) => z.object({ id: z.number().int().positive() }).parse(input))
   .handler(async ({ data }) => {
+    if (!Number.isSafeInteger(data.id)) return [];
     const sql = await getSql();
     // Full history (not just latest-per-store) so we can chart how each store's price
     // has moved over time — useful for spotting a genuine trend vs. a one-off cheap receipt.
@@ -247,7 +357,7 @@ export const addPrice = createServerFn({ method: "POST" })
       z.object({
         productId: z.number().int().positive(),
         storeId: z.string().min(1),
-        amount: z.number().positive().max(9999),
+        amount: z.number().positive().max(MAX_PRICE_XCG),
       }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -274,7 +384,9 @@ export const getList = createServerFn({ method: "GET" })
 
 export const addToList = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { productId: number }) => input)
+  .validator((input: { productId: number }) =>
+    z.object({ productId: z.number().int().positive() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     const sql = await getSql();
     await sql`
@@ -287,7 +399,9 @@ export const addToList = createServerFn({ method: "POST" })
 
 export const removeFromList = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { productId: number }) => input)
+  .validator((input: { productId: number }) =>
+    z.object({ productId: z.number().int().positive() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     const sql = await getSql();
     await sql`

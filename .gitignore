@@ -1,7 +1,39 @@
-node_modules/
+# No trailing slash: a trailing-slash pattern only matches a real directory,
+# not a symlink named node_modules — which is what per-agent git worktrees use
+# to avoid a full reinstall, so it would otherwise show up as untracked there.
+node_modules
 .project_id
 .github_repo
 .env
 .env.*
+
+# Build output. `.vercel/` is here because a committed prebuilt snapshot makes
+# Vercel skip its own build and re-serve the stale copy forever; the siblings
+# below are the same trap from the same toolchain (see eslint.config.mjs's
+# ignore list, which already names all four).
 .vercel/
+.output/
+.nitro/
+dist/
+
+# Working directories the Agent tool creates for isolated background agents.
 .claude/worktrees/
+
+# Local caches
+.vite/
+*.tsbuildinfo
+.node_modules.lock
+
+# Throwaway QA output — `scripts/browser-smoke.mjs` writes screenshots and
+# verdict JSON here on every run (AGENTS.md § browser QA); none of it is a
+# source asset. The directory itself stays (via .gitkeep) so the tool has
+# somewhere to write in a fresh clone.
+screenshots/*
+!screenshots/.gitkeep
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

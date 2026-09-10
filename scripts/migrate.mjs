@@ -20,9 +20,29 @@ import { pendingMigrations } from "./migration-plan.mjs";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
-  console.log(
-    "[migrate] DATABASE_URL not set — skipping (the PGLite fallback migrates itself).",
-  );
+  // Locally this is the normal path: no Postgres, PGLite migrates itself.
+  // On a real deploy it is not — it means the build produced an app pointed at
+  // a database nobody migrated, which surfaces later as a schema mismatch at
+  // runtime rather than as a failed build. Say so loudly; a neutral "skipping"
+  // line is exactly the kind of message that gets scrolled past.
+  if (process.env.VERCEL) {
+    console.warn(
+      "[migrate] WARNING: running on Vercel but DATABASE_URL is not set in the BUILD environment.",
+    );
+    console.warn(
+      "[migrate]   No migrations were applied. If this deploy talks to Postgres at runtime,",
+    );
+    console.warn(
+      "[migrate]   it is now running against an unmigrated schema. Expose DATABASE_URL to the",
+    );
+    console.warn(
+      "[migrate]   build (Vercel → Settings → Environment Variables, incl. the Preview scope).",
+    );
+  } else {
+    console.log(
+      "[migrate] DATABASE_URL not set — skipping (the PGLite fallback migrates itself).",
+    );
+  }
   process.exit(0);
 }
 
@@ -42,7 +62,16 @@ async function main() {
     return;
   }
 
-  const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+  // `connectionTimeoutMillis` defaults to 0 — wait forever. On Vercel that
+  // turns a database the build container cannot reach (paused instance, IP
+  // allowlist that omits build IPs, wrong host) into a build that hangs until
+  // the platform's build timeout kills it tens of minutes later, with no clue
+  // in the log. Fail fast and legibly instead.
+  const pool = new pg.Pool({
+    connectionString: databaseUrl,
+    max: 1,
+    connectionTimeoutMillis: 30_000,
+  });
   const client = await pool.connect();
   try {
     await client.query(

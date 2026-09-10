@@ -17,11 +17,13 @@ function ListPage() {
     queryFn: () => getList(),
     enabled: !!user,
   });
-  const ids = (list.data ?? []).map((r) => r.id);
+  // Quantities matter: two litres of milk cost twice one litre, so the basket
+  // comparison has to be told how many of each item the list holds.
+  const items = (list.data ?? []).map((r) => ({ productId: r.id, qty: num(r.qty) > 0 ? num(r.qty) : 1 }));
   const basket = useQuery({
-    queryKey: ["basket", ids.join(",")],
-    queryFn: () => cheapestBasket({ data: { productIds: ids } }),
-    enabled: ids.length > 0,
+    queryKey: ["basket", items.map((i) => `${i.productId}x${i.qty}`).join(",")],
+    queryFn: () => cheapestBasket({ data: { items } }),
+    enabled: items.length > 0,
   });
   const rm = useMutation({
     mutationFn: (productId: number) => removeFromList({ data: { productId } }),
@@ -41,11 +43,20 @@ function ListPage() {
 
   const winner = basket.data?.stores[0];
   const winnerLines = winner?.lines.filter((l) => l.amount != null) ?? [];
+  const winnerMissing = winner?.lines.filter((l) => l.amount == null) ?? [];
+  // The top store isn't always a complete basket. Say what it can't supply rather than
+  // quietly dropping those items from the order and quoting a total that doesn't cover them.
+  const withQty = (l: { qty: number; name: string }) => `${l.qty > 1 ? `${l.qty} × ` : ""}${l.name.trim()}`;
   const whatsappText = winner
     ? encodeURIComponent(
         `Hi! I'd like to order these items from ${winner.store.name}:\n\n` +
-          winnerLines.map((l) => `• ${l.name}`).join("\n") +
-          `\n\nTotal (Barata estimate): ${xcg(winner.total)}\nCould you confirm availability and delivery? Thank you!`,
+          winnerLines.map(withQty).join("\n") +
+          `\n\nTotal for those items (Barata estimate): ${xcg(winner.total)}` +
+          (winnerMissing.length
+            ? `\n\nI couldn't find a price for these, but please add them if you carry them:\n` +
+              winnerMissing.map(withQty).join("\n")
+            : "") +
+          `\n\nCould you confirm availability and delivery? Thank you!`,
       )
     : "";
 
@@ -94,9 +105,23 @@ function ListPage() {
                     <div className="text-xs text-muted">{s.store.area}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-medium tabular-nums">{xcg(s.total)}</div>
-                    {s.missing ? <div className="text-xs text-warn">{s.missing} items missing</div> : null}
-                    {i === 0 && winner ? <div className="text-xs text-good">Best complete total</div> : null}
+                    {/* A store that stocks none of the basket has a total of 0, which
+                        reads as "free" rather than "nothing to price here". */}
+                    <div className="font-medium tabular-nums">
+                      {s.missing === s.lines.length ? <span className="text-faint">No prices yet</span> : xcg(s.total)}
+                    </div>
+                    {s.missing ? (
+                      <div className="text-xs text-warn">
+                        {s.missing} {s.missing === 1 ? "item" : "items"} missing
+                      </div>
+                    ) : null}
+                    {/* Only a store carrying every item has a comparable total — the others
+                        are cheaper simply because they're ringing up fewer things. */}
+                    {i === 0 && winner ? (
+                      <div className={s.missing ? "text-xs text-warn" : "text-xs text-good"}>
+                        {s.missing ? "Cheapest so far — but not a full basket" : "Best complete total"}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 {i === 0 && winner ? (
@@ -113,7 +138,29 @@ function ListPage() {
             ))}
           </div>
 
-          {basket.data?.splitSavings && basket.data.splitSavings.maxSavings > 0 ? (
+          {basket.data?.splitSavings && !basket.data.splitSavings.oneStopComplete ? (
+            <div className="mt-6 rounded-2xl border border-line bg-surface p-4">
+              <h3 className="font-medium">No single store stocks your whole list</h3>
+              <p className="mt-1 text-sm text-muted">
+                Every supermarket above is missing at least one item, so the totals cover different
+                baskets and aren't directly comparable. Buying each item wherever it's cheapest would
+                cost{" "}
+                <span className="font-medium tabular-nums text-ink">
+                  {xcg(basket.data.splitSavings.mixAndMatchTotal)}
+                </span>{" "}
+                across {basket.data.splitSavings.storeCount}{" "}
+                {basket.data.splitSavings.storeCount === 1 ? "store" : "stores"}
+                {basket.data.splitSavings.storeNames.length
+                  ? ` (${basket.data.splitSavings.storeNames.join(", ")})`
+                  : ""}
+                .
+              </p>
+              <p className="mt-2 text-xs text-faint">
+                Some items may simply have no price on record yet — adding a receipt on the Add tab
+                fills those gaps for everyone.
+              </p>
+            </div>
+          ) : basket.data?.splitSavings && basket.data.splitSavings.maxSavings > 0 ? (
             <div className="mt-6 rounded-2xl border border-line bg-surface p-4">
               <h3 className="font-medium">
                 {basket.data.splitSavings.worthIt ? "Worth splitting your trip?" : "Splitting wouldn't really help"}
