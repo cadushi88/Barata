@@ -13,10 +13,22 @@ export const Route = createFileRoute("/products/$id")({ component: ProductPage }
 function ProductPage() {
   const { id } = Route.useParams();
   const pid = Number(id);
+  // /products/anything-non-numeric would otherwise send NaN to Postgres
+  // ("invalid input syntax for type integer"), so the page sat on a loading
+  // skeleton through three react-query retries before admitting defeat.
+  const validId = Number.isInteger(pid) && pid > 0;
   const { user } = useCurrentUserState();
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["product", pid], queryFn: () => getProduct({ data: { id: pid } }) });
-  const history = useQuery({ queryKey: ["price-history", pid], queryFn: () => getPriceHistory({ data: { id: pid } }) });
+  const q = useQuery({
+    queryKey: ["product", pid],
+    queryFn: () => getProduct({ data: { id: pid } }),
+    enabled: validId,
+  });
+  const history = useQuery({
+    queryKey: ["price-history", pid],
+    queryFn: () => getPriceHistory({ data: { id: pid } }),
+    enabled: validId,
+  });
   const stores = useQuery({ queryKey: ["stores"], queryFn: () => listStores() });
   const [storeId, setStoreId] = useState("");
   const [amount, setAmount] = useState("");
@@ -55,7 +67,7 @@ function ProductPage() {
       }
       return point;
     });
-    return { series, storeNames, hasEnoughData: dates.length >= 2 };
+    return { series, storeNames, dates, hasEnoughData: dates.length >= 2 };
   }, [history.data]);
 
   const chartColors = ["#0E6E5E", "#D98E4A", "#6B7570", "#0A5548", "#B0562F", "#3B6E8F"];
@@ -199,8 +211,13 @@ function ProductPage() {
               </div>
             </div>
           ) : history.data && history.data.length > 0 ? (
+            // A chart needs two dates, not two prices: over a third of the catalog was
+            // seeded from a single survey day, so "only one price point" would be a
+            // flat lie on a page already listing a dozen store prices.
             <p className="mt-6 text-sm text-faint">
-              Only one price point recorded so far — history will appear here once more prices come in over time.
+              {history.data.length === 1
+                ? "Only one price recorded so far — history will appear here once more prices come in over time."
+                : `All ${history.data.length} recorded prices come from a single day (${chart.dates[0]}) — a trend line appears once prices are logged on another day.`}
             </p>
           ) : null}
 

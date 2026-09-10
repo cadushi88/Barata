@@ -156,6 +156,7 @@ function ContributePage() {
                         {it.category}
                         {it.matchedName ? ` · matched ${it.matchedName}` : " · unmatched"}
                         {it.isWeighed ? " · priced per kg" : ""}
+                        {it.missingUnitPrice ? " · sold by weight, no per-kg price on the line — not published" : ""}
                       </div>
                     </div>
                     <div className="tabular-nums">
@@ -176,8 +177,13 @@ function ContributePage() {
               {commit.data && commit.data.ok ? (
                 <p className="mt-2 text-sm text-good">Published {commit.data.n} prices to the public catalog.</p>
               ) : null}
+              {/* Publishing could fail silently: a rejected purchase date or a receipt the
+                  server won't accept left the button looking like it had done nothing. */}
               {commit.data && !commit.data.ok ? (
                 <p className="mt-2 text-sm text-warn">{commit.data.error}</p>
+              ) : null}
+              {commit.isError ? (
+                <p className="mt-2 text-sm text-warn">Could not publish these prices. Please try again.</p>
               ) : null}
             </>
           )}

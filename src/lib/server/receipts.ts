@@ -24,6 +24,8 @@ type ParsedItem = {
   productId?: number | null;
   matchedName?: string | null;
   isWeighed?: boolean;
+  /** Sold by weight but the receipt's per-kg figure was not readable — not publishable. */
+  missingUnitPrice?: boolean;
   unitPrice?: number | null;
 };
 
@@ -59,15 +61,49 @@ function matchStore(
   return { storeId: best.id, confidence: Math.round(best.score * 100) / 100 };
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
 /** Normalizes a date string (various receipt formats) to YYYY-MM-DD, rejecting future/implausible dates. */
-function normalizeReceiptDate(raw: string | null | undefined): string | null {
+export function normalizeReceiptDate(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return null;
+  const s = String(raw).trim();
+  // A bare number ("2026", "0") is not a date anyone printed on a receipt, but
+  // `new Date("2026")` happily yields 1 Jan 2026 — reject it rather than invent a day.
+  if (!s || /^\d+$/.test(s)) return null;
+
+  let y: number;
+  let m: number;
+  let d: number;
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ].*)?$/.exec(s);
+  if (iso) {
+    // Read ISO dates field-by-field: `new Date("2026-02-30")` parses as UTC and
+    // rolls over to 2026-03-02, so an impossible printed date would be silently
+    // stored as a real (wrong) one.
+    y = Number(iso[1]);
+    m = Number(iso[2]);
+    d = Number(iso[3]);
+  } else {
+    const parsed = new Date(s);
+    if (Number.isNaN(parsed.getTime())) return null;
+    // Local calendar fields, not toISOString(): a locally-parsed "08/15/2026" is
+    // local midnight, which in any timezone east of UTC would slip back a day.
+    y = parsed.getFullYear();
+    m = parsed.getMonth() + 1;
+    d = parsed.getDate();
+  }
+
+  // Reject days that don't exist on the calendar (31 Sep, 30 Feb, month 13…).
+  const asUtc = new Date(Date.UTC(y, m - 1, d));
+  if (asUtc.getUTCFullYear() !== y || asUtc.getUTCMonth() !== m - 1 || asUtc.getUTCDate() !== d) return null;
+
+  // Compare whole days, so a receipt bought earlier today is never "in the future",
+  // and "ten years ago" really means ten years, not "1 Jan of ten calendar years back".
   const now = new Date();
-  const tenYearsAgo = new Date(now.getFullYear() - 10, 0, 1);
-  if (d > now || d < tenYearsAgo) return null;
-  return d.toISOString().slice(0, 10);
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const tenYearsAgo = Date.UTC(now.getFullYear() - 10, now.getMonth(), now.getDate());
+  const t = asUtc.getTime();
+  if (t > today || t < tenYearsAgo) return null;
+  return `${y}-${pad2(m)}-${pad2(d)}`;
 }
 
 export const parseReceipt = createServerFn({ method: "POST" })
@@ -176,11 +212,23 @@ Receipt text:\n${data.text || "(image only)"}`,
       const matched = best && best.score >= 0.45;
       // For weighed goods (e.g. "2.23 kg @ FL3.95/kg"), the comparable, storable price is
       // the per-kg unit price — not the line total, which varies purely with how much was weighed.
-      const isWeighed = Boolean(it.isWeighed) && Number.isFinite(Number(it.unitPrice)) && Number(it.unitPrice) > 0;
-      const recordedAmount = isWeighed ? Number(it.unitPrice) : Number(it.amount);
-      // The model's output is derived from attacker-supplied receipt text/image,
-      // so treat it as untrusted: only in-range amounts become storable lines.
-      if (!(recordedAmount > 0) || recordedAmount > MAX_PRICE_XCG) continue;
+      const declaredWeighed = Boolean(it.isWeighed);
+      const perKg = Number(it.unitPrice);
+      const isWeighed = declaredWeighed && Number.isFinite(perKg) && perKg > 0;
+      // …which means a line flagged as weighed but missing its "@ x.xx/kg" figure has no
+      // storable price at all. Previously it silently fell through to the line total, so
+      // "2.230 kg @ 3.95/kg = 8.81" taught the catalog that a kilo costs 8.81. Keep the
+      // line visible with its real total, but never let it be published as a price.
+      const missingUnitPrice = declaredWeighed && !isWeighed;
+      const recordedAmount = isWeighed ? perKg : Number(it.amount);
+      // The model's output is derived from attacker-supplied receipt text/image, so treat
+      // it as untrusted: an out-of-range amount is still shown (so the shopper sees what
+      // was scanned) but never publishable. commitReceipt's validator also requires a
+      // positive amount and validates the WHOLE batch, so a single zero/negative/oversized
+      // line (a refund, a discount row, a misread "0.00") would otherwise reject every
+      // price on the receipt — keep it visible, just not selectable for publish.
+      const inRange = recordedAmount > 0 && recordedAmount <= MAX_PRICE_XCG;
+      const publishable = matched && !missingUnitPrice && inRange;
       if (items.length >= MAX_COMMIT_ITEMS) break;
       items.push({
         name: String(it.name),
@@ -188,9 +236,10 @@ Receipt text:\n${data.text || "(image only)"}`,
         qty: Number(it.qty) || 1,
         unit: isWeighed ? "kg" : it.unit ?? null,
         category: it.category ?? (matched ? catalog.find((c) => c.id === best!.id)?.category : "Pantry"),
-        productId: matched ? best!.id : null,
+        productId: publishable ? best!.id : null,
         matchedName: matched ? best!.name : null,
         isWeighed,
+        missingUnitPrice,
         unitPrice: isWeighed ? recordedAmount : null,
       });
     }
@@ -293,9 +342,10 @@ export const commitReceipt = createServerFn({ method: "POST" })
       return { ok: false as const, error: "No matched receipt lines to publish" };
     }
 
-    // The purchase date drives `observed_at`, and every lookup takes the LATEST
-    // observation per store — so an unchecked date lets a forged price sit
-    // permanently at the top. The form caps it client-side; enforce it here.
+    // The date input's `max` attribute is advisory only, and the purchase date drives
+    // `observed_at` — every lookup takes the LATEST observation per store, so an
+    // unchecked (or forged, future) date lets a price sit permanently at the top.
+    // Re-validate on the server rather than trusting the client-side cap.
     const purchaseDate = normalizeReceiptDate(data.purchaseDate);
     if (data.purchaseDate && !purchaseDate) {
       return { ok: false as const, error: "Purchase date must be a real date within the last 10 years" };

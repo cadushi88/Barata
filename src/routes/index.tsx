@@ -76,12 +76,43 @@ function Home() {
             <div key={i} className="h-28 animate-pulse rounded-2xl bg-line/60" />
           ))}
         </div>
+      ) : (products.data ?? []).length === 0 ? (
+        <div className="rounded-2xl border border-line bg-surface px-4 py-8 text-center">
+          <p className="text-sm text-muted">
+            {q.trim()
+              ? `Nothing in the catalog matches “${q.trim()}”${category ? ` under ${category}` : ""}.`
+              : `No products in ${category} yet.`}
+          </p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {q ? (
+              <button
+                type="button"
+                onClick={() => setQ("")}
+                className="h-10 rounded-full border border-line px-4 text-sm text-ink"
+              >
+                Clear search
+              </button>
+            ) : null}
+            {category ? (
+              <button
+                type="button"
+                onClick={() => setCategory("")}
+                className="h-10 rounded-full border border-line px-4 text-sm text-ink"
+              >
+                Show all categories
+              </button>
+            ) : null}
+          </div>
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {(products.data ?? []).map((p) => {
+            // A product nobody has priced yet has min_price === null; num() would
+            // turn that into 0 and the card would advertise it as free.
+            const hasPrice = p.min_price != null;
             const min = num(p.min_price);
             const max = num(p.max_price);
-            const save = max > min ? max - min : 0;
+            const save = hasPrice && max > min ? max - min : 0;
             return (
               <article key={p.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
                 <Link to="/products/$id" params={{ id: String(p.id) }} className="block no-underline">
@@ -103,8 +134,14 @@ function Home() {
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="font-medium tabular-nums">{xcg(min)}</div>
-                    <div className="max-w-28 truncate text-xs text-muted">{p.cheapest_store}</div>
+                    {hasPrice ? (
+                      <>
+                        <div className="font-medium tabular-nums">{xcg(min)}</div>
+                        <div className="max-w-28 truncate text-xs text-muted">{p.cheapest_store}</div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-faint">No price yet</div>
+                    )}
                   </div>
                 </div>
                 {save > 0.2 ? (
