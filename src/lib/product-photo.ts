@@ -1,6 +1,12 @@
 /**
  * Real product photos (Unsplash / Wikimedia / free stock).
- * These are actual photographs, not AI-generated.
+ * These are actual photographs, not AI-generated - and each entry must
+ * actually depict that product. A previous version reused a handful of
+ * photos across unrelated items (e.g. a raw chicken fillet photo was
+ * assigned to canned tuna, tuna in oil, mayonnaise and sardines) - those
+ * mismatches have been removed rather than left showing the wrong food.
+ * A product without an accurate photo here falls back to the Barata logo
+ * (see ProductPhoto) instead of a guessed, possibly-wrong picture.
  */
 const REAL_PHOTOS: Record<string, string> = {
   // Dairy
@@ -29,16 +35,9 @@ const REAL_PHOTOS: Record<string, string> = {
   "olive-oil": "https://images.unsplash.com/photo-1474979266404-7ea32081f3e9?w=600&q=80",
   "salt": "https://images.unsplash.com/photo-1518110925495-5fe2fda0442a?w=600&q=80",
   "tomato-paste": "https://images.unsplash.com/photo-1592419044706-39796d40f98c?w=600&q=80",
-  "beans-can": "https://images.unsplash.com/photo-1551462147-378704645ec2?w=600&q=80",
-  "tuna-can": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=600&q=80",
-  "tuna-oil": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=600&q=80",
   "ketchup": "https://images.unsplash.com/photo-1528756514091-dee5ecaa3278?w=600&q=80",
-  "mayo": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=600&q=80",
   "peanut-butter": "https://images.unsplash.com/photo-1621939514649-c8f9a0f0c0e0?w=600&q=80",
-  "jam": "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&q=80",
   "cornflakes": "https://images.unsplash.com/photo-1521483451569-e338407c3fc0?w=600&q=80",
-  "oats": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&q=80",
-  "sardines": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=600&q=80",
 
   // Meat & Seafood
   "chicken-fillet": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=600&q=80",
@@ -47,7 +46,6 @@ const REAL_PHOTOS: Record<string, string> = {
   "beef-round": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
   "sirloin": "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&q=80",
   "shoulder-ham": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
-  "pork-chops": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=600&q=80",
   "bacon": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
   "sausage": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
   "ham-sliced": "https://images.unsplash.com/photo-1529692236671-f1f9cf4ade68?w=600&q=80",
@@ -92,37 +90,17 @@ const REAL_PHOTOS: Record<string, string> = {
   "chocolate": "https://images.unsplash.com/photo-1548907040-4d8b2e1a0e0e?w=600&q=80",
 
   // Household & Baby
-  "tp": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600&q=80",
   "paper-towel": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600&q=80",
   "detergent": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&q=80",
   "soap": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&q=80",
   "diapers": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=600&q=80",
-  "formula": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=600&q=80",
 };
 
 /**
- * One representative real photo per catalog category, used when a product
- * has no photo of its own. Reuses URLs already in REAL_PHOTOS above (so
- * every fallback is a photo already known to load) rather than a blank box.
+ * Returns a real product photo URL, or undefined if none is accurately
+ * mapped - callers should show a neutral placeholder (the Barata logo)
+ * rather than guess with an unrelated photo.
  */
-const CATEGORY_PHOTOS: Record<string, string> = {
-  Dairy: REAL_PHOTOS["milk-1l"],
-  Bakery: REAL_PHOTOS["bread-white"],
-  Pantry: REAL_PHOTOS["rice-1kg"],
-  Meat: REAL_PHOTOS["chicken-fillet"],
-  Produce: REAL_PHOTOS["apples"],
-  Drinks: REAL_PHOTOS["water-6"],
-  Frozen: REAL_PHOTOS["frozen-fries"],
-  Snacks: REAL_PHOTOS["chips"],
-  Household: REAL_PHOTOS["detergent"],
-  "Personal Care": REAL_PHOTOS["soap"],
-  Baby: REAL_PHOTOS["diapers"],
-};
-
-/**
- * Returns a photo URL for a product: its own real photo if mapped, otherwise
- * a representative photo for its category, so a card is never left blank.
- */
-export function productPhoto(slug: string, category?: string): string | undefined {
-  return REAL_PHOTOS[slug] ?? (category ? CATEGORY_PHOTOS[category] : undefined);
+export function productPhoto(slug: string): string | undefined {
+  return REAL_PHOTOS[slug];
 }
