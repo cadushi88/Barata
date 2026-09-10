@@ -69,8 +69,8 @@ export const searchProducts = createServerFn({ method: "GET" })
     const products = await sql<ProductRow>`
       select id, slug, name, brand, category, unit, needs_review
       from products
-      where (${q.length === 0} or lower(name) like ${pattern} escape '\'
-             or lower(coalesce(brand,'')) like ${pattern} escape '\')
+      where (${q.length === 0} or lower(name) like ${pattern} escape '\\'
+             or lower(coalesce(brand,'')) like ${pattern} escape '\\')
         and (${cat.length === 0} or category = ${cat})
       order by name
     `;
