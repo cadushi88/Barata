@@ -3,17 +3,49 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { MAX_PRICE_XCG } from "@/lib/server/catalog";
 import { z } from "zod";
+import Anthropic from "@anthropic-ai/sdk";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
 /**
  * Most receipts one account may run through the (paid) AI extractor per hour.
- * Every call spends an xAI request on an attacker-chosen payload of up to 20k
- * characters plus a 2.5 MB image, so without a ceiling one signed-in account can
- * drain the app's API budget in a loop.
+ * Every call spends a Claude API request on an attacker-chosen payload of up to
+ * 20k characters plus a 2.5 MB image, so without a ceiling one signed-in account
+ * can drain the app's API budget in a loop.
  */
 const MAX_PARSES_PER_HOUR = 30;
 
 /** Most price lines one receipt commit may publish. */
 const MAX_COMMIT_ITEMS = 200;
+
+const RECEIPT_MODEL = "claude-sonnet-5";
+
+const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+type SupportedImageType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+/** Splits a `data:image/...;base64,...` URL into the parts Claude's vision input needs. */
+function parseImageDataUrl(dataUrl: string): { mediaType: SupportedImageType; data: string } | null {
+  const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=]+)$/.exec(dataUrl);
+  if (!m) return null;
+  const mediaType = m[1].toLowerCase();
+  if (!SUPPORTED_IMAGE_TYPES.has(mediaType)) return null;
+  return { mediaType: mediaType as SupportedImageType, data: m[2] };
+}
+
+const ReceiptExtractionSchema = z.object({
+  storeGuess: z.string().nullable(),
+  purchaseDate: z.string().nullable(),
+  items: z.array(
+    z.object({
+      name: z.string(),
+      amount: z.number(),
+      qty: z.number().nullable().optional(),
+      unit: z.string().nullable().optional(),
+      category: z.string().nullable().optional(),
+      isWeighed: z.boolean().nullable().optional(),
+      unitPrice: z.number().nullable().optional(),
+    }),
+  ),
+});
 
 type ParsedItem = {
   name: string;
@@ -117,7 +149,7 @@ export const parseReceipt = createServerFn({ method: "POST" })
       }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const apiKey = process.env.XAI_API_KEY;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return { ok: false as const, error: "AI is not available in this environment" };
     }
@@ -136,65 +168,42 @@ export const parseReceipt = createServerFn({ method: "POST" })
     const storeRows = await sql<{ id: string; name: string }>`select id, name from stores`;
     const storeHint = storeRows.map((s) => s.name).join(", ");
 
-    const userContent: unknown[] = [
-      {
-        type: "text",
-        text: `Extract grocery receipt line items as JSON only.
-Return {"storeGuess": string|null, "purchaseDate": string|null, "items":[{"name":string,"amount":number,"qty":number,"unit":string|null,"category":string,"isWeighed":boolean,"unitPrice":number|null}]}.
-"storeGuess": the store/chain name printed on the receipt header/logo, if visible. Known Curaçao chains include: ${storeHint}. If the printed name closely matches one of these, use that exact name; otherwise return your best guess of the printed name as-is.
+    const promptText = `Extract grocery receipt line items.
+"storeGuess": the store/chain name printed on the receipt header/logo, if visible. Known Curaçao chains include: ${storeHint}. If the printed name closely matches one of these, use that exact name; otherwise return your best guess of the printed name as-is. Use null if no store name is visible.
 "purchaseDate": the transaction date printed on the receipt, converted to strict ISO format YYYY-MM-DD. If no date is visible, return null. Never invent a date.
 "amount": the LINE TOTAL as printed (what was actually paid for that line).
 "isWeighed": true for any item sold by weight, recognizable from patterns like "2.230 kg @ FL3.95/kg" or "1.860 kg @ FL8.95/kg" printed above or below the item name.
 "unitPrice": for weighed items ONLY, the price PER KG (the "@ FLx.xx/kg" figure), NOT the line total — this is what makes two purchases of the same product at different weights actually comparable. For non-weighed items, set unitPrice to null.
 Amounts are in XCG (Caribbean guilder; treat old "FL"/Antillean florin amounts as equivalent to XCG). Ignore totals, tax, change, and voided lines.
 Prefer matching item names to this catalog (id|name|category):\n${catalogHint}\n
-Receipt text:\n${data.text || "(image only)"}`,
-      },
-    ];
-    if (data.imageDataUrl?.startsWith("data:image")) {
-      userContent.push({
-        type: "image_url",
-        image_url: { url: data.imageDataUrl },
-      });
-    }
+Receipt text:\n${data.text || "(image only)"}`;
 
-    const res = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "grok-4.5",
-        max_tokens: 1200,
-        temperature: 0,
-        messages: [
-          {
-            role: "system",
-            content: "You extract structured grocery receipt data. Reply with JSON only.",
-          },
-          { role: "user", content: userContent },
-        ],
-      }),
-    });
-    if (!res.ok) {
-      return { ok: false as const, error: `xAI API error ${res.status}` };
+    const userContent: Anthropic.Messages.ContentBlockParam[] = [];
+    const image = data.imageDataUrl ? parseImageDataUrl(data.imageDataUrl) : null;
+    if (image) {
+      userContent.push({ type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } });
     }
-    const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const raw = body.choices?.[0]?.message?.content ?? "";
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return { ok: false as const, error: "Could not parse receipt" };
-    }
-    let parsed: { storeGuess?: string | null; purchaseDate?: string | null; items?: ParsedItem[] };
+    userContent.push({ type: "text", text: promptText });
+
+    const client = new Anthropic({ apiKey });
+    let response;
     try {
-      parsed = JSON.parse(jsonMatch[0]) as {
-        storeGuess?: string | null;
-        purchaseDate?: string | null;
-        items?: ParsedItem[];
-      };
-    } catch {
-      return { ok: false as const, error: "Could not parse receipt JSON" };
+      response = await client.messages.parse({
+        model: RECEIPT_MODEL,
+        max_tokens: 1200,
+        system: "You extract structured grocery receipt data from receipt text and/or photos.",
+        messages: [{ role: "user", content: userContent }],
+        output_config: { format: zodOutputFormat(ReceiptExtractionSchema) },
+      });
+    } catch (err) {
+      if (err instanceof Anthropic.APIError) {
+        return { ok: false as const, error: `Claude API error ${err.status}` };
+      }
+      return { ok: false as const, error: "Could not reach the AI service" };
+    }
+    const parsed = response.parsed_output;
+    if (!parsed) {
+      return { ok: false as const, error: "Could not parse receipt" };
     }
     const { storeId: detectedStoreId, confidence: storeConfidence } = matchStore(parsed.storeGuess, storeRows);
     const purchaseDate = normalizeReceiptDate(parsed.purchaseDate);
