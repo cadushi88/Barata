@@ -317,10 +317,10 @@ export const commitReceipt = createServerFn({ method: "POST" })
     `;
     const receipt = owned[0];
     if (!receipt) return { ok: false as const, error: "Receipt not found" };
-    // A receipt is a one-shot ticket to write public prices. Without this an
-    // attacker could replay one commit endlessly to flood `prices`.
-    if (receipt.status === "committed") {
-      return { ok: false as const, error: "This receipt has already been published" };
+    // A receipt is a one-shot ticket to stage price submissions. Without this
+    // an attacker could replay one commit endlessly to flood the review queue.
+    if (receipt.status !== "parsed") {
+      return { ok: false as const, error: "This receipt has already been submitted" };
     }
     const storeExists = await sql<{ id: string }>`select id from stores where id = ${data.storeId}`;
     if (!storeExists[0]) return { ok: false as const, error: "Unknown store" };
@@ -362,14 +362,23 @@ export const commitReceipt = createServerFn({ method: "POST" })
     // Use the receipt's actual purchase date for price history when we have one,
     // rather than the upload time — a receipt from last week shouldn't look like today's price.
     const observedAt = purchaseDate ? `${purchaseDate}T12:00:00Z` : new Date().toISOString();
+    // Stage for admin review rather than publishing straight to `prices` — see
+    // the admin dashboard's Price Approvals section (`scraped_prices`, despite
+    // the name, now holds every kind of pending price change, not just the
+    // scraper's). The product is already a confirmed catalog match (server-side
+    // matched at parse time, never client-supplied), so this is a pre-filled,
+    // high-confidence row ready for a one-click approve.
     for (const it of lines) {
       await sql`
-        insert into prices (product_id, store_id, amount, source, user_id, observed_at)
-        values (${it.productId}, ${data.storeId}, ${it.amount}, 'receipt', ${context.userId}, ${observedAt})
+        insert into scraped_prices
+          (store_id, raw_name, raw_price, matched_product_id, match_confidence, status, source, user_id, receipt_id, observed_at)
+        values
+          (${data.storeId}, (select name from products where id = ${it.productId}), ${it.amount},
+           ${it.productId}, 1, 'pending', 'receipt', ${context.userId}, ${data.receiptId}, ${observedAt})
       `;
     }
     await sql`
-      update receipts set store_id = ${data.storeId}, status = 'committed', purchase_date = ${purchaseDate}
+      update receipts set store_id = ${data.storeId}, status = 'pending_review', purchase_date = ${purchaseDate}
       where id = ${data.receiptId} and user_id = ${context.userId}
     `;
     return { ok: true as const, n: lines.length };

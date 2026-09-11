@@ -362,9 +362,16 @@ export const addPrice = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const sql = await getSql();
+    // Stage for admin review rather than publishing straight to `prices` — see
+    // the admin dashboard's Price Approvals section. The reporter already
+    // picked the exact catalog product, so this is a confirmed match ready
+    // for a one-click approve, not a guess to re-resolve.
     await sql`
-      insert into prices (product_id, store_id, amount, source, user_id)
-      values (${data.productId}, ${data.storeId}, ${data.amount}, 'manual', ${context.userId})
+      insert into scraped_prices
+        (store_id, raw_name, raw_price, matched_product_id, match_confidence, status, source, user_id)
+      values
+        (${data.storeId}, (select name from products where id = ${data.productId}), ${data.amount},
+         ${data.productId}, 1, 'pending', 'manual', ${context.userId})
     `;
     return { ok: true as const };
   });

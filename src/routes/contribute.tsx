@@ -188,10 +188,13 @@ function ContributePage() {
                 disabled={commit.isPending || !parsed.items.some((i) => i.productId)}
                 onClick={() => commit.mutate()}
               >
-                {commit.isPending ? "Saving…" : "Publish matched prices"}
+                {commit.isPending ? "Saving…" : "Submit matched prices"}
               </button>
               {commit.data && commit.data.ok ? (
-                <p className="mt-2 text-sm text-good">Published {commit.data.n} prices to the public catalog.</p>
+                <p className="mt-2 text-sm text-good">
+                  Submitted {commit.data.n} price{commit.data.n === 1 ? "" : "s"} for review — they'll appear in the
+                  catalog once approved.
+                </p>
               ) : null}
               {/* Publishing could fail silently: a rejected purchase date or a receipt the
                   server won't accept left the button looking like it had done nothing. */}
@@ -199,7 +202,7 @@ function ContributePage() {
                 <p className="mt-2 text-sm text-warn">{commit.data.error}</p>
               ) : null}
               {commit.isError ? (
-                <p className="mt-2 text-sm text-warn">Could not publish these prices. Please try again.</p>
+                <p className="mt-2 text-sm text-warn">Could not submit these prices. Please try again.</p>
               ) : null}
             </>
           )}

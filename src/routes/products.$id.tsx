@@ -4,7 +4,9 @@ import { Shell } from "@/components/shell";
 import { addToList, getProduct, getPriceHistory, listStores, addPrice } from "@/lib/server/catalog";
 import { xcg, num } from "@/lib/money";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { ProductPhoto } from "@/components/product-photo";
+import { AdminPhotoUpload } from "@/components/admin-photo-upload";
 import { useState, useMemo, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
@@ -18,6 +20,7 @@ function ProductPage() {
   // skeleton through three react-query retries before admitting defeat.
   const validId = Number.isInteger(pid) && pid > 0;
   const { user } = useCurrentUserState();
+  const { isAdmin } = useIsAdmin();
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ["product", pid],
@@ -91,7 +94,10 @@ function ProductPage() {
             <Link to="/" className="text-muted">Catalog</Link> / {product.category}
           </p>
           <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,22rem)_1fr] md:items-start">
-            <ProductPhoto slug={product.slug} name={product.name} size="hero" />
+            <div className="space-y-3">
+              <ProductPhoto productId={product.id} slug={product.slug} name={product.name} size="hero" />
+              {isAdmin ? <AdminPhotoUpload productId={product.id} /> : null}
+            </div>
             <div>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
             <div>
@@ -273,7 +279,7 @@ function ProductPage() {
               >
                 {addP.isPending ? "Saving…" : "Submit price"}
               </button>
-              {addP.isSuccess ? <span className="text-sm text-good">Saved</span> : null}
+              {addP.isSuccess ? <span className="text-sm text-good">Submitted for review</span> : null}
               {addP.isError ? <span className="text-sm text-warn">Could not save</span> : null}
             </form>
           ) : (

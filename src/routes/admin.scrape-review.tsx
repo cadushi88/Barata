@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Shell } from "@/components/shell";
 import {
   approveScrapedPrice,
   bulkApproveHighConfidence,
@@ -10,14 +9,11 @@ import {
   rejectScrapedPrice,
   triggerScrapeRun,
 } from "@/lib/server/scrape-review";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { RedirectToSignIn } from "@/lib/auth/gates";
 import { xcg } from "@/lib/money";
 
 export const Route = createFileRoute("/admin/scrape-review")({ component: ScrapeReviewPage });
 
 function ScrapeReviewPage() {
-  const { user, isPending } = useCurrentUserState();
   const qc = useQueryClient();
   const runs = useQuery({ queryKey: ["scrape-runs"], queryFn: () => listScrapeRuns() });
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
@@ -45,21 +41,12 @@ function ScrapeReviewPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["scrape-run-detail", activeRunId] }),
   });
 
-  if (isPending) {
-    return (
-      <Shell>
-        <div className="h-32 animate-pulse rounded-md bg-line/60" />
-      </Shell>
-    );
-  }
-  if (!user) return <RedirectToSignIn />;
-
   const pending = (detail.data?.prices ?? []).filter((p) => p.status === "pending");
   const matched = pending.filter((p) => p.matched_product_id != null);
   const unmatched = pending.filter((p) => p.matched_product_id == null);
 
   return (
-    <Shell>
+    <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold md:text-3xl">Scraper review</h1>
@@ -196,6 +183,6 @@ function ScrapeReviewPage() {
           )}
         </div>
       </div>
-    </Shell>
+    </>
   );
 }
