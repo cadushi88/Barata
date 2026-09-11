@@ -9,5 +9,9 @@ declare module "virtual:grok-og-identity" {
       banner?: string;
       color?: string;
     };
+    icons: {
+      icon512: boolean;
+      maskable512: boolean;
+    };
   };
 }

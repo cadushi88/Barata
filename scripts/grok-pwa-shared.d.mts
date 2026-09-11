@@ -13,7 +13,12 @@ export declare function renderInstallPageHtml(
   template: string,
   context?: { host?: string | null; url?: string | null },
 ): string;
-export declare function renderWebManifest(hostHeader: string | null | undefined): string;
+export declare function renderWebManifest(
+  hostHeader: string | null | undefined,
+  context?: { site?: OgSite; icons?: { icon512?: boolean; maskable512?: boolean } },
+): string;
+export declare function placeholderCardColor(site?: OgSite): string;
+export declare function detectExtraIcons(cwd?: string): { icon512: boolean; maskable512: boolean };
 export declare function grokPwaHeadTags(appName?: string): Array<[string, string]>;
 export declare const GROK_EXTENSIONS_SCRIPT_SRC: string;
 export declare function readGrokProjectId(): string;
@@ -44,7 +49,10 @@ export type GrokHeadContext = {
 
 export declare function readOgSite(cwd?: string): OgSite;
 export declare function ogCardPublicPath(cwd?: string): string;
-export declare function snapshotOgIdentity(cwd?: string): { site: OgSite };
+export declare function snapshotOgIdentity(cwd?: string): {
+  site: OgSite;
+  icons: { icon512: boolean; maskable512: boolean };
+};
 export declare function customOgAssetPath(cwd?: string): string;
 export declare function resolveOgCardAsset(site?: OgSite, cwd?: string): string;
 export declare function ogServiceUrl(): string;
