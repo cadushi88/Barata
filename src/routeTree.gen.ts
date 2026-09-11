@@ -10,20 +10,33 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ContributeRouteImport } from './routes/contribute'
 import { Route as ListRouteImport } from './routes/list'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as PlanRouteImport } from './routes/plan'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
+import { Route as AdminPricesRouteImport } from './routes/admin.prices'
+import { Route as AdminReceiptsRouteImport } from './routes/admin.receipts'
 import { Route as AdminScrapeReviewRouteImport } from './routes/admin.scrape-review'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as ApiScrapeRunRouteImport } from './routes/api/scrape-run'
 import { Route as ProductsIdRouteImport } from './routes/products.$id'
 import { Route as StoresIndexRouteImport } from './routes/stores.index'
 import { Route as StoresIdRouteImport } from './routes/stores.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiProductPhotoProductIdRouteImport } from './routes/api/product-photo.$productId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContributeRoute = ContributeRouteImport.update({
@@ -41,15 +54,45 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlanRoute = PlanRouteImport.update({
   id: '/plan',
   path: '/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMessagesRoute = AdminMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPricesRoute = AdminPricesRouteImport.update({
+  id: '/prices',
+  path: '/prices',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReceiptsRoute = AdminReceiptsRouteImport.update({
+  id: '/receipts',
+  path: '/receipts',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminScrapeReviewRoute = AdminScrapeReviewRouteImport.update({
-  id: '/admin/scrape-review',
-  path: '/admin/scrape-review',
-  getParentRoute: () => rootRouteImport,
+  id: '/scrape-review',
+  path: '/scrape-review',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
 } as any)
 const ApiScrapeRunRoute = ApiScrapeRunRouteImport.update({
   id: '/api/scrape-run',
@@ -76,101 +119,155 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProductPhotoProductIdRoute =
+  ApiProductPhotoProductIdRouteImport.update({
+    id: '/api/product-photo/$productId',
+    path: '/api/product-photo/$productId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/contribute': typeof ContributeRoute
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
   '/plan': typeof PlanRoute
+  '/admin/messages': typeof AdminMessagesRoute
+  '/admin/prices': typeof AdminPricesRoute
+  '/admin/receipts': typeof AdminReceiptsRoute
   '/admin/scrape-review': typeof AdminScrapeReviewRoute
+  '/admin/users': typeof AdminUsersRoute
   '/api/scrape-run': typeof ApiScrapeRunRoute
   '/products/$id': typeof ProductsIdRoute
   '/stores/$id': typeof StoresIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/stores/': typeof StoresIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/product-photo/$productId': typeof ApiProductPhotoProductIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/contribute': typeof ContributeRoute
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
   '/plan': typeof PlanRoute
+  '/admin/messages': typeof AdminMessagesRoute
+  '/admin/prices': typeof AdminPricesRoute
+  '/admin/receipts': typeof AdminReceiptsRoute
   '/admin/scrape-review': typeof AdminScrapeReviewRoute
+  '/admin/users': typeof AdminUsersRoute
   '/api/scrape-run': typeof ApiScrapeRunRoute
   '/products/$id': typeof ProductsIdRoute
   '/stores/$id': typeof StoresIdRoute
+  '/admin': typeof AdminIndexRoute
   '/stores': typeof StoresIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/product-photo/$productId': typeof ApiProductPhotoProductIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/contribute': typeof ContributeRoute
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
   '/plan': typeof PlanRoute
+  '/admin/messages': typeof AdminMessagesRoute
+  '/admin/prices': typeof AdminPricesRoute
+  '/admin/receipts': typeof AdminReceiptsRoute
   '/admin/scrape-review': typeof AdminScrapeReviewRoute
+  '/admin/users': typeof AdminUsersRoute
   '/api/scrape-run': typeof ApiScrapeRunRoute
   '/products/$id': typeof ProductsIdRoute
   '/stores/$id': typeof StoresIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/stores/': typeof StoresIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/product-photo/$productId': typeof ApiProductPhotoProductIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/contribute'
     | '/list'
     | '/login'
+    | '/messages'
     | '/plan'
+    | '/admin/messages'
+    | '/admin/prices'
+    | '/admin/receipts'
     | '/admin/scrape-review'
+    | '/admin/users'
     | '/api/scrape-run'
     | '/products/$id'
     | '/stores/$id'
+    | '/admin/'
     | '/stores/'
     | '/api/auth/$'
+    | '/api/product-photo/$productId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/contribute'
     | '/list'
     | '/login'
+    | '/messages'
     | '/plan'
+    | '/admin/messages'
+    | '/admin/prices'
+    | '/admin/receipts'
     | '/admin/scrape-review'
+    | '/admin/users'
     | '/api/scrape-run'
     | '/products/$id'
     | '/stores/$id'
+    | '/admin'
     | '/stores'
     | '/api/auth/$'
+    | '/api/product-photo/$productId'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/contribute'
     | '/list'
     | '/login'
+    | '/messages'
     | '/plan'
+    | '/admin/messages'
+    | '/admin/prices'
+    | '/admin/receipts'
     | '/admin/scrape-review'
+    | '/admin/users'
     | '/api/scrape-run'
     | '/products/$id'
     | '/stores/$id'
+    | '/admin/'
     | '/stores/'
     | '/api/auth/$'
+    | '/api/product-photo/$productId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
   ContributeRoute: typeof ContributeRoute
   ListRoute: typeof ListRoute
   LoginRoute: typeof LoginRoute
+  MessagesRoute: typeof MessagesRoute
   PlanRoute: typeof PlanRoute
-  AdminScrapeReviewRoute: typeof AdminScrapeReviewRoute
   ApiScrapeRunRoute: typeof ApiScrapeRunRoute
   ProductsIdRoute: typeof ProductsIdRoute
   StoresIdRoute: typeof StoresIdRoute
   StoresIndexRoute: typeof StoresIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiProductPhotoProductIdRoute: typeof ApiProductPhotoProductIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -180,6 +277,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contribute': {
@@ -203,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/plan': {
       id: '/plan'
       path: '/plan'
@@ -210,12 +321,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/messages': {
+      id: '/admin/messages'
+      path: '/messages'
+      fullPath: '/admin/messages'
+      preLoaderRoute: typeof AdminMessagesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/prices': {
+      id: '/admin/prices'
+      path: '/prices'
+      fullPath: '/admin/prices'
+      preLoaderRoute: typeof AdminPricesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/receipts': {
+      id: '/admin/receipts'
+      path: '/receipts'
+      fullPath: '/admin/receipts'
+      preLoaderRoute: typeof AdminReceiptsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/scrape-review': {
       id: '/admin/scrape-review'
-      path: '/admin/scrape-review'
+      path: '/scrape-review'
       fullPath: '/admin/scrape-review'
       preLoaderRoute: typeof AdminScrapeReviewRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/api/scrape-run': {
       id: '/api/scrape-run'
@@ -252,21 +398,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/product-photo/$productId': {
+      id: '/api/product-photo/$productId'
+      path: '/api/product-photo/$productId'
+      fullPath: '/api/product-photo/$productId'
+      preLoaderRoute: typeof ApiProductPhotoProductIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AdminRouteChildren {
+  AdminMessagesRoute: typeof AdminMessagesRoute
+  AdminPricesRoute: typeof AdminPricesRoute
+  AdminReceiptsRoute: typeof AdminReceiptsRoute
+  AdminScrapeReviewRoute: typeof AdminScrapeReviewRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminMessagesRoute: AdminMessagesRoute,
+  AdminPricesRoute: AdminPricesRoute,
+  AdminReceiptsRoute: AdminReceiptsRoute,
+  AdminScrapeReviewRoute: AdminScrapeReviewRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
   ContributeRoute: ContributeRoute,
   ListRoute: ListRoute,
   LoginRoute: LoginRoute,
+  MessagesRoute: MessagesRoute,
   PlanRoute: PlanRoute,
-  AdminScrapeReviewRoute: AdminScrapeReviewRoute,
   ApiScrapeRunRoute: ApiScrapeRunRoute,
   ProductsIdRoute: ProductsIdRoute,
   StoresIdRoute: StoresIdRoute,
   StoresIndexRoute: StoresIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiProductPhotoProductIdRoute: ApiProductPhotoProductIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

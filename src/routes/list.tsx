@@ -75,7 +75,7 @@ function ListPage() {
             {(list.data ?? []).map((it) => (
               <li key={it.id} className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3 py-2">
                 <Link to="/products/$id" params={{ id: String(it.id) }} className="flex min-w-0 items-center gap-3 text-ink no-underline">
-                  <ProductPhoto slug={it.slug} name={it.name} size="thumb" />
+                  <ProductPhoto productId={it.id} slug={it.slug} name={it.name} size="thumb" />
                   <div className="min-w-0">
                     <div className="truncate">{it.name}</div>
                     <div className="text-xs text-faint">

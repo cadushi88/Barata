@@ -116,7 +116,7 @@ function Home() {
             return (
               <article key={p.id} className="overflow-hidden rounded-md border border-line bg-surface">
                 <Link to="/products/$id" params={{ id: String(p.id) }} className="block no-underline">
-                  <ProductPhoto slug={p.slug} name={p.name} size="card" />
+                  <ProductPhoto productId={p.id} slug={p.slug} name={p.name} size="card" />
                 </Link>
                 <div className="p-4">
                 <div className="flex items-start justify-between gap-3">

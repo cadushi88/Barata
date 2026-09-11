@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { InstallPrompt } from "@/components/install-prompt";
 import { LayoutGrid, Store, ClipboardList, Camera, UserRound } from "lucide-react";
@@ -14,6 +15,7 @@ const tabs = [
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const { user, isPending } = useCurrentUserState();
+  const { isAdmin } = useIsAdmin();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
@@ -44,6 +46,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
             >
               Business
             </Link>
+            {user ? (
+              <Link
+                to="/messages"
+                className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/messages") ? "bg-ink text-bg" : "text-muted hover:bg-surface hover:text-ink"}`}
+              >
+                Messages
+              </Link>
+            ) : null}
+            {isAdmin ? (
+              <Link
+                to="/admin"
+                className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/admin") ? "bg-ink text-bg" : "text-muted hover:bg-surface hover:text-ink"}`}
+              >
+                Admin
+              </Link>
+            ) : null}
           </nav>
 
           <div className="ml-auto flex items-center gap-2">

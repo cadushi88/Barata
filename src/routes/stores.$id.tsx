@@ -44,7 +44,7 @@ function StorePage() {
                     className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3 py-2 text-ink no-underline"
                   >
                     <span className="flex min-w-0 items-center gap-3">
-                      <ProductPhoto slug={it.slug} name={it.name} size="thumb" />
+                      <ProductPhoto productId={it.id} slug={it.slug} name={it.name} size="thumb" />
                       <span className="min-w-0">
                         <span className="block truncate">{it.name}</span>
                         <span className="text-xs text-faint">{it.unit}</span>

@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Navigate } from "@tanstack/react-router";
 import { authEnabled, signOut } from "./client";
 import { useCurrentUser, useCurrentUserState } from "./use-current-user";
+import { useIsAdmin } from "./use-is-admin";
 
 /**
  * Auth state components — plain wrappers around `useCurrentUserState()`.
@@ -42,6 +43,20 @@ export function SignedOut({ children }: { children: ReactNode }) {
  */
 export function RedirectToSignIn({ to = SIGN_IN_PATH }: { to?: string }) {
   return <Navigate to={to} />;
+}
+
+/**
+ * Gate for admin-only pages. Renders `children` once we KNOW the visitor is
+ * the admin; redirects home while the session is still resolving OR once we
+ * know they're signed out / signed in as someone else — this is a UX
+ * convenience only, never the real security boundary (that's
+ * `adminMiddleware` on every admin server function).
+ */
+export function RequireAdmin({ children }: { children: ReactNode }) {
+  const { isAdmin, isPending } = useIsAdmin();
+  if (isPending) return null;
+  if (!isAdmin) return <Navigate to="/" />;
+  return <>{children}</>;
 }
 
 /**
