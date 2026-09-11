@@ -82,7 +82,7 @@ function ProductPage() {
   return (
     <Shell>
       {q.isLoading ? (
-        <div className="h-40 animate-pulse rounded-2xl bg-line/60" />
+        <div className="h-40 animate-pulse rounded-md bg-line/60" />
       ) : !product ? (
         <p>Product not found.</p>
       ) : (
@@ -128,7 +128,7 @@ function ProductPage() {
                   key={p.store_id}
                   to="/stores/$id"
                   params={{ id: p.store_id }}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-ink no-underline"
+                  className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-4 py-3 text-ink no-underline"
                 >
                   <div className="min-w-0">
                     <div className="truncate font-medium">{p.store_name}</div>
@@ -145,7 +145,7 @@ function ProductPage() {
             })}
           </div>
 
-          <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-line bg-surface md:block">
+          <div className="mt-6 hidden overflow-x-auto rounded-md border border-line bg-surface md:block">
             <table className="w-full text-sm">
               <thead className="bg-bg text-left text-xs uppercase tracking-wide text-faint">
                 <tr>
@@ -179,7 +179,7 @@ function ProductPage() {
           </div>
 
           {chart.hasEnoughData ? (
-            <div className="mt-6 rounded-2xl border border-line bg-surface p-4">
+            <div className="mt-6 rounded-md border border-line bg-surface p-4">
               <h2 className="font-medium">Price history</h2>
               <p className="mt-1 text-xs text-faint">
                 Shown as the last known price at each store between updates — not every day is a new observation.
@@ -230,7 +230,7 @@ function ProductPage() {
 
           {user ? (
             <form
-              className="mt-6 grid gap-3 rounded-2xl border border-line bg-surface p-4 sm:flex sm:flex-wrap sm:items-end"
+              className="mt-6 grid gap-3 rounded-md border border-line bg-surface p-4 sm:flex sm:flex-wrap sm:items-end"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (submitting.current) return;

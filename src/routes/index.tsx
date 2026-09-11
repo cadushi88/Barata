@@ -45,7 +45,7 @@ function Home() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search milk, rice, chicken…"
-          className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-base outline-none ring-primary/30 focus:ring-2"
+          className="h-12 w-full rounded-md border border-line bg-surface px-4 text-base outline-none ring-primary/30 focus:ring-2"
         />
       </div>
       <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:mb-6 md:flex-wrap md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
@@ -73,11 +73,11 @@ function Home() {
       ) : products.isLoading ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-28 animate-pulse rounded-2xl bg-line/60" />
+            <div key={i} className="h-28 animate-pulse rounded-md bg-line/60" />
           ))}
         </div>
       ) : (products.data ?? []).length === 0 ? (
-        <div className="rounded-2xl border border-line bg-surface px-4 py-8 text-center">
+        <div className="rounded-md border border-line bg-surface px-4 py-8 text-center">
           <p className="text-sm text-muted">
             {q.trim()
               ? `Nothing in the catalog matches “${q.trim()}”${category ? ` under ${category}` : ""}.`
@@ -114,7 +114,7 @@ function Home() {
             const max = num(p.max_price);
             const save = hasPrice && max > min ? max - min : 0;
             return (
-              <article key={p.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
+              <article key={p.id} className="overflow-hidden rounded-md border border-line bg-surface">
                 <Link to="/products/$id" params={{ id: String(p.id) }} className="block no-underline">
                   <ProductPhoto slug={p.slug} name={p.name} size="card" />
                 </Link>

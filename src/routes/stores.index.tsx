@@ -20,7 +20,7 @@ function StoresPage() {
             key={s.id}
             to="/stores/$id"
             params={{ id: s.id }}
-            className="rounded-2xl border border-line bg-surface p-4 text-ink no-underline hover:border-primary"
+            className="rounded-md border border-line bg-surface p-4 text-ink no-underline hover:border-primary"
           >
             <div className="flex items-start justify-between gap-3">
               <div>

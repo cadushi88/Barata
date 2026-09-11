@@ -35,7 +35,7 @@ function ListPage() {
   if (isPending) {
     return (
       <Shell>
-        <div className="h-32 animate-pulse rounded-2xl bg-line/60" />
+        <div className="h-32 animate-pulse rounded-md bg-line/60" />
       </Shell>
     );
   }
@@ -95,7 +95,7 @@ function ListPage() {
             {(basket.data?.stores ?? []).map((s, i) => (
               <div
                 key={s.store.id}
-                className={`rounded-2xl border p-4 ${i === 0 ? "border-primary bg-surface" : "border-line bg-surface"}`}
+                className={`rounded-md border p-4 ${i === 0 ? "border-primary bg-surface" : "border-line bg-surface"}`}
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <div>
@@ -139,7 +139,7 @@ function ListPage() {
           </div>
 
           {basket.data?.splitSavings && !basket.data.splitSavings.oneStopComplete ? (
-            <div className="mt-6 rounded-2xl border border-line bg-surface p-4">
+            <div className="mt-6 rounded-md border border-line bg-surface p-4">
               <h3 className="font-medium">No single store stocks your whole list</h3>
               <p className="mt-1 text-sm text-muted">
                 Every supermarket above is missing at least one item, so the totals cover different
@@ -161,7 +161,7 @@ function ListPage() {
               </p>
             </div>
           ) : basket.data?.splitSavings && basket.data.splitSavings.maxSavings > 0 ? (
-            <div className="mt-6 rounded-2xl border border-line bg-surface p-4">
+            <div className="mt-6 rounded-md border border-line bg-surface p-4">
               <h3 className="font-medium">
                 {basket.data.splitSavings.worthIt ? "Worth splitting your trip?" : "Splitting wouldn't really help"}
               </h3>
