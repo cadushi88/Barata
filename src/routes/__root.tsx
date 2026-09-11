@@ -4,6 +4,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
+import { CRASH_GUARD_SCRIPT } from "@/lib/crash-guard";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Barata";
@@ -18,7 +19,7 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#0d0d0e", media: "(prefers-color-scheme: dark)" },
       { name: "description", content: "Compare supermarket prices across Curaçao. Find who is cheapest." },
     ],
-    scripts: [{ children: THEME_INIT_SCRIPT }],
+    scripts: [{ children: THEME_INIT_SCRIPT }, { children: CRASH_GUARD_SCRIPT }],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
