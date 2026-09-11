@@ -58,6 +58,7 @@ function MessagesPage() {
                 </button>
               </div>
             )}
+            {reply.isError ? <p className="mt-2 text-xs text-warn">Could not send — try again</p> : null}
           </div>
         ))}
         {!messages.isLoading && rows.length === 0 ? <p className="text-sm text-faint">No messages yet.</p> : null}

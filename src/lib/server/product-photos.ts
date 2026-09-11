@@ -3,12 +3,18 @@ import { getSql } from "@/lib/db";
 import { adminMiddleware } from "@/lib/auth/admin-middleware";
 import { z } from "zod";
 
-/** Client-compressed to well under this before it ever reaches the wire — this is a hard backstop, not the normal path. */
+/**
+ * Client-compressed images are well under this; PDFs travel uncompressed, so this
+ * caps them too. Deliberately kept well under Vercel's ~4.5 MB serverless request
+ * body limit even after base64 inflates it ~1.37x — a bigger cap here would let a
+ * request get silently rejected by the platform before ever reaching this code,
+ * which is indistinguishable from "upload does nothing" to whoever hit it.
+ */
 const MAX_PHOTO_BYTES = 3_000_000;
-const SUPPORTED = new Set(["image/jpeg", "image/png", "image/webp"]);
+const SUPPORTED = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 
 function parseDataUrl(dataUrl: string): { contentType: string; bytes: Buffer } | null {
-  const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=]+)$/.exec(dataUrl);
+  const m = /^data:([a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=]+)$/.exec(dataUrl);
   if (!m) return null;
   const contentType = m[1].toLowerCase();
   if (!SUPPORTED.has(contentType)) return null;
@@ -29,7 +35,7 @@ export const uploadProductPhoto = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const parsed = parseDataUrl(data.dataUrl);
-    if (!parsed) return { ok: false as const, error: "Unsupported or oversized image" };
+    if (!parsed) return { ok: false as const, error: "Unsupported or oversized file" };
     const sql = await getSql();
     const product = await sql<{ id: number }>`select id from products where id = ${data.productId}`;
     if (!product[0]) return { ok: false as const, error: "Product not found" };
@@ -43,12 +49,12 @@ export const uploadProductPhoto = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
-export const hasProductPhoto = createServerFn({ method: "GET" })
+export const getProductPhotoMeta = createServerFn({ method: "GET" })
   .validator((input: { productId: number }) => z.object({ productId: z.number().int().positive() }).parse(input))
   .handler(async ({ data }) => {
     const sql = await getSql();
-    const rows = await sql<{ product_id: number }>`
-      select product_id from product_photos where product_id = ${data.productId}
+    const rows = await sql<{ content_type: string }>`
+      select content_type from product_photos where product_id = ${data.productId}
     `;
-    return { hasPhoto: rows.length > 0 };
+    return { contentType: rows[0]?.content_type ?? null };
   });

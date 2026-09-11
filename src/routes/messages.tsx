@@ -62,6 +62,7 @@ function MessagesPage() {
           {send.isPending ? "Sending…" : "Send"}
         </button>
         {send.data && !send.data.ok ? <p className="text-sm text-warn">{send.data.error}</p> : null}
+        {send.isError ? <p className="text-sm text-warn">Could not send — try again</p> : null}
       </form>
 
       <div className="mt-8 space-y-3">
