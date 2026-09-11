@@ -14,6 +14,8 @@ import { Route as ContributeRouteImport } from './routes/contribute'
 import { Route as ListRouteImport } from './routes/list'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PlanRouteImport } from './routes/plan'
+import { Route as AdminScrapeReviewRouteImport } from './routes/admin.scrape-review'
+import { Route as ApiScrapeRunRouteImport } from './routes/api/scrape-run'
 import { Route as ProductsIdRouteImport } from './routes/products.$id'
 import { Route as StoresIndexRouteImport } from './routes/stores.index'
 import { Route as StoresIdRouteImport } from './routes/stores.$id'
@@ -44,6 +46,16 @@ const PlanRoute = PlanRouteImport.update({
   path: '/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminScrapeReviewRoute = AdminScrapeReviewRouteImport.update({
+  id: '/admin/scrape-review',
+  path: '/admin/scrape-review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiScrapeRunRoute = ApiScrapeRunRouteImport.update({
+  id: '/api/scrape-run',
+  path: '/api/scrape-run',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductsIdRoute = ProductsIdRouteImport.update({
   id: '/products/$id',
   path: '/products/$id',
@@ -71,6 +83,8 @@ export interface FileRoutesByFullPath {
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
   '/plan': typeof PlanRoute
+  '/admin/scrape-review': typeof AdminScrapeReviewRoute
+  '/api/scrape-run': typeof ApiScrapeRunRoute
   '/products/$id': typeof ProductsIdRoute
   '/stores/$id': typeof StoresIdRoute
   '/stores/': typeof StoresIndexRoute
@@ -82,6 +96,8 @@ export interface FileRoutesByTo {
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
   '/plan': typeof PlanRoute
+  '/admin/scrape-review': typeof AdminScrapeReviewRoute
+  '/api/scrape-run': typeof ApiScrapeRunRoute
   '/products/$id': typeof ProductsIdRoute
   '/stores/$id': typeof StoresIdRoute
   '/stores': typeof StoresIndexRoute
@@ -94,6 +110,8 @@ export interface FileRoutesById {
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
   '/plan': typeof PlanRoute
+  '/admin/scrape-review': typeof AdminScrapeReviewRoute
+  '/api/scrape-run': typeof ApiScrapeRunRoute
   '/products/$id': typeof ProductsIdRoute
   '/stores/$id': typeof StoresIdRoute
   '/stores/': typeof StoresIndexRoute
@@ -107,6 +125,8 @@ export interface FileRouteTypes {
     | '/list'
     | '/login'
     | '/plan'
+    | '/admin/scrape-review'
+    | '/api/scrape-run'
     | '/products/$id'
     | '/stores/$id'
     | '/stores/'
@@ -118,6 +138,8 @@ export interface FileRouteTypes {
     | '/list'
     | '/login'
     | '/plan'
+    | '/admin/scrape-review'
+    | '/api/scrape-run'
     | '/products/$id'
     | '/stores/$id'
     | '/stores'
@@ -129,6 +151,8 @@ export interface FileRouteTypes {
     | '/list'
     | '/login'
     | '/plan'
+    | '/admin/scrape-review'
+    | '/api/scrape-run'
     | '/products/$id'
     | '/stores/$id'
     | '/stores/'
@@ -141,6 +165,8 @@ export interface RootRouteChildren {
   ListRoute: typeof ListRoute
   LoginRoute: typeof LoginRoute
   PlanRoute: typeof PlanRoute
+  AdminScrapeReviewRoute: typeof AdminScrapeReviewRoute
+  ApiScrapeRunRoute: typeof ApiScrapeRunRoute
   ProductsIdRoute: typeof ProductsIdRoute
   StoresIdRoute: typeof StoresIdRoute
   StoresIndexRoute: typeof StoresIndexRoute
@@ -184,6 +210,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/scrape-review': {
+      id: '/admin/scrape-review'
+      path: '/admin/scrape-review'
+      fullPath: '/admin/scrape-review'
+      preLoaderRoute: typeof AdminScrapeReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/scrape-run': {
+      id: '/api/scrape-run'
+      path: '/api/scrape-run'
+      fullPath: '/api/scrape-run'
+      preLoaderRoute: typeof ApiScrapeRunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/products/$id': {
       id: '/products/$id'
       path: '/products/$id'
@@ -221,6 +261,8 @@ const rootRouteChildren: RootRouteChildren = {
   ListRoute: ListRoute,
   LoginRoute: LoginRoute,
   PlanRoute: PlanRoute,
+  AdminScrapeReviewRoute: AdminScrapeReviewRoute,
+  ApiScrapeRunRoute: ApiScrapeRunRoute,
   ProductsIdRoute: ProductsIdRoute,
   StoresIdRoute: StoresIdRoute,
   StoresIndexRoute: StoresIndexRoute,

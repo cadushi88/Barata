@@ -104,6 +104,20 @@ const explicitBaseURL = env("BETTER_AUTH_URL");
 // Explicit `string[]` (not a readonly tuple) — Better Auth's DynamicBaseURLConfig
 // requires a mutable `allowedHosts: string[]`.
 const previewAllowedHosts: string[] = [...PREVIEW_ALLOWED_HOSTS];
+// This app is deployed standalone on Vercel (not through the Grok platform),
+// so nobody sets `BETTER_AUTH_URL` by hand — and even if someone did, Vercel
+// gives every PR its own preview URL, so one fixed value could never cover
+// them all. Vercel auto-injects these two on every build with no
+// configuration: `VERCEL_URL` is this exact deployment's host (changes per
+// preview), `VERCEL_PROJECT_PRODUCTION_URL` is the assigned production
+// domain (custom domain included, if one is set). Trusting both, the same
+// way the live-preview host is trusted, means sign-in works on production
+// AND every preview deploy without anyone touching Vercel's env vars.
+// Without this, every credentialed auth request (email sign-up/sign-in,
+// starting Google OAuth) failed with "Invalid origin" on the deployed app.
+const vercelHosts: string[] = [env("VERCEL_URL"), env("VERCEL_PROJECT_PRODUCTION_URL")].filter(
+  (h): h is string => Boolean(h),
+);
 // Local `npm run dev` (port 8080 contract). Browsers may send Origin as any of
 // these for the same server — trusting only `localhost` rejects `127.0.0.1` and
 // breaks email/password with "Invalid origin".
@@ -115,7 +129,7 @@ const LOCAL_DEV_ORIGINS: string[] = [
 const baseURL = explicitBaseURL ?? {
   // Include loopback hosts so dynamic baseURL resolves for local email/password
   // (not only the preview wildcard).
-  allowedHosts: [...previewAllowedHosts, "localhost", "127.0.0.1", "[::1]"],
+  allowedHosts: [...previewAllowedHosts, ...vercelHosts, "localhost", "127.0.0.1", "[::1]"],
   // `auto` → trust both http:// and https:// expansions of allowedHosts
   // (preview is https; local dev is http).
   protocol: "auto" as const,
@@ -123,16 +137,18 @@ const baseURL = explicitBaseURL ?? {
 };
 
 // Origins Better Auth accepts on credentialed POSTs (sign-up/sign-in, etc.).
-// Missing entries here surface as FORBIDDEN "Invalid origin".
-const trustedOrigins: string[] = explicitBaseURL
-  ? [explicitBaseURL, ...LOCAL_DEV_ORIGINS]
-  : [
-      // Host wildcards (matched against Origin's host)
-      ...previewAllowedHosts,
-      // Full-origin wildcards (matched against Origin)
-      ...previewAllowedHosts.flatMap((host) => [`https://${host}`, `http://${host}`]),
-      ...LOCAL_DEV_ORIGINS,
-    ];
+// Missing entries here surface as FORBIDDEN "Invalid origin". `vercelHosts` is
+// included even when `explicitBaseURL` is set, so a stale/incorrect
+// `BETTER_AUTH_URL` can't silently lock out the actual deployed domain.
+const trustedOrigins: string[] = [
+  ...(explicitBaseURL ? [explicitBaseURL] : previewAllowedHosts),
+  // Host wildcards (matched against Origin's host)
+  ...vercelHosts,
+  // Full-origin wildcards (matched against Origin)
+  ...(explicitBaseURL ? [] : previewAllowedHosts.flatMap((host) => [`https://${host}`, `http://${host}`])),
+  ...vercelHosts.flatMap((host) => [`https://${host}`, `http://${host}`]),
+  ...LOCAL_DEV_ORIGINS,
+];
 
 const databaseUrl = env("DATABASE_URL");
 
