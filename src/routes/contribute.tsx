@@ -49,7 +49,7 @@ function ContributePage() {
   if (isPending) {
     return (
       <Shell>
-        <div className="h-32 animate-pulse rounded-2xl bg-line/60" />
+        <div className="h-32 animate-pulse rounded-md bg-line/60" />
       </Shell>
     );
   }
@@ -111,7 +111,7 @@ function ContributePage() {
           <label className="block text-sm">
             <span className="mb-1 block text-muted">Receipt text</span>
             <textarea
-              className="min-h-48 w-full rounded-2xl border border-line bg-surface p-3 font-mono text-sm"
+              className="min-h-48 w-full rounded-md border border-line bg-surface p-3 font-mono text-sm"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
@@ -152,7 +152,7 @@ function ContributePage() {
           ) : null}
         </form>
 
-        <div className="rounded-2xl border border-line bg-surface p-4">
+        <div className="rounded-md border border-line bg-surface p-4">
           <h2 className="font-medium">Sorted items</h2>
           {!parsed ? (
             <p className="mt-2 text-sm text-muted">Results appear here, grouped by type.</p>

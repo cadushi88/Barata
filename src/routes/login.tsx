@@ -45,7 +45,7 @@ function Login() {
 
   return (
     <main className="grid min-h-dvh place-items-center bg-bg px-4 py-10 pb-8 text-ink">
-      <div className="w-full max-w-sm space-y-5 rounded-[28px] border border-line bg-surface p-6">
+      <div className="w-full max-w-sm space-y-5 rounded-lg border border-line bg-surface p-6">
         <div>
           <Link to="/" className="font-display text-2xl font-semibold text-ink no-underline">
             Barata

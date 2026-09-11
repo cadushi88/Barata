@@ -16,7 +16,7 @@ function StorePage() {
   return (
     <Shell>
       {q.isLoading ? (
-        <div className="h-40 animate-pulse rounded-2xl bg-line/60" />
+        <div className="h-40 animate-pulse rounded-md bg-line/60" />
       ) : !store ? (
         <p>Store not found.</p>
       ) : (

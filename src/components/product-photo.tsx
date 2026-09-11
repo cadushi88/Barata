@@ -15,7 +15,7 @@ export function ProductPhoto({
   const [failed, setFailed] = useState(false);
   const box =
     size === "hero"
-      ? "aspect-[4/3] w-full rounded-2xl md:aspect-square"
+      ? "aspect-[4/3] w-full rounded-md md:aspect-square"
       : size === "thumb"
         ? "h-14 w-14 shrink-0 rounded-xl"
         : "aspect-[4/3] w-full rounded-none";

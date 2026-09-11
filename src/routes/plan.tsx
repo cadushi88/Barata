@@ -30,8 +30,8 @@ function PlanPage() {
           <li>Public catalog of staples with latest price per store</li>
           <li>Basket optimizer: one list, twelve store totals</li>
           <li>Manual price reports (signed-in)</li>
-          <li>Receipt paste / photo → Grok extracts, sorts by category and price, matches SKUs</li>
-          <li>Accounts: Google, X, or email</li>
+          <li>Receipt paste / photo → Claude extracts, sorts by category and price, matches SKUs</li>
+          <li>Accounts: Google or email</li>
         </ul>
       </section>
 
@@ -61,7 +61,7 @@ function PlanPage() {
       <section className="mt-10 space-y-3">
         <h2 className="font-display text-2xl">Starting capital</h2>
         <p className="text-sm text-muted">Lean Curaçao BV, this web app as MVP (native later). Figures in USD.</p>
-        <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
+        <div className="overflow-x-auto rounded-md border border-line bg-surface">
           <table className="w-full text-sm">
             <tbody>
               {[
@@ -125,7 +125,7 @@ function PlanPage() {
 
 function Card({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-line bg-surface p-4">
+    <div className="rounded-md border border-line bg-surface p-4">
       <h3 className="font-medium">{title}</h3>
       <p className="mt-1 text-sm text-muted">{body}</p>
     </div>

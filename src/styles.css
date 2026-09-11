@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #f6f1e8;
-  --color-surface: #fffdf8;
-  --color-ink: #1a1c19;
-  --color-muted: #5c6158;
-  --color-faint: #8a8f86;
-  --color-line: #e4ddd0;
-  --color-primary: #0f6e5c;
-  --color-primary-fg: #f6f1e8;
+  --color-bg: #ffffff;
+  --color-surface: #f4f4f5;
+  --color-ink: #111112;
+  --color-muted: #6e6e72;
+  --color-faint: #9a9a9e;
+  --color-line: #e6e6e8;
+  --color-primary: #0f9d58;
+  --color-primary-fg: #ffffff;
   --color-leaf: #2f6b4f;
   --color-warn: #9a4a1a;
-  --color-good: #1f6b45;
-  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fraunces", ui-serif, Georgia, serif;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  --color-good: #0f9d58;
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bebas Neue", "Arial Narrow", sans-serif;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
 }
 
 /*
@@ -32,17 +32,17 @@
  * they can't drift apart.
  */
 :root {
-  --dark-bg: #14160f;
-  --dark-surface: #1d2016;
-  --dark-ink: #f1ede1;
-  --dark-muted: #a8ad9b;
-  --dark-faint: #868c76;
-  --dark-line: #33372a;
-  --dark-primary: #3ecba0;
-  --dark-primary-fg: #0b1410;
+  --dark-bg: #0d0d0e;
+  --dark-surface: #1a1a1c;
+  --dark-ink: #f5f5f6;
+  --dark-muted: #9a9a9e;
+  --dark-faint: #6e6e72;
+  --dark-line: #2c2c2e;
+  --dark-primary: #17c76c;
+  --dark-primary-fg: #0d0d0e;
   --dark-leaf: #6bbd8f;
   --dark-warn: #e2874a;
-  --dark-good: #4cbd82;
+  --dark-good: #17c76c;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -97,6 +97,12 @@
   }
   * {
     box-sizing: border-box;
+  }
+  /* Bebas Neue is a display face designed for caps; headings lean into that
+     rather than rendering its mixed-case glyphs, which read as small-caps. */
+  h1, h2 {
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
   }
 }
 
