@@ -175,6 +175,19 @@ export default defineConfig(({ command, isPreview }) => ({
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.
             serverDir: "./server",
+            // The SSR document response must never be cached at the edge: a
+            // cached HTML shell references that deploy's content-hashed JS/CSS
+            // chunk filenames, which stop existing the moment the next deploy
+            // replaces them - any visitor served the stale HTML gets 404s on
+            // every asset and the app never hydrates (blank/stuck-loading page
+            // that looks fine in a fresh preview deployment, since preview URLs
+            // are unique per-build and can never serve a stale prior build's
+            // HTML). Static assets are unaffected - Vercel serves those
+            // directly from its own immutable-cached build output, never
+            // through this function.
+            routeRules: {
+              "/**": { headers: { "cache-control": "no-store" } },
+            },
           }),
         ]
       : []),
