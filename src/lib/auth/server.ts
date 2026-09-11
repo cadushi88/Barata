@@ -81,6 +81,15 @@ const grokIssuer = env("GROK_AUTH_ISSUER") ?? GROK_ISSUER_DEFAULT;
 const grokClientId = env("GROK_AUTH_CLIENT_ID") ?? PREVIEW_CLIENT_ID;
 const grokClientSecret = env("GROK_AUTH_CLIENT_SECRET") ?? PREVIEW_CLIENT_SECRET;
 
+// Direct Google OAuth (Better Auth's native provider), independent of the Grok
+// broker. The broker only issues real per-app credentials to apps deployed
+// through the Grok platform's own pipeline; this app is deployed standalone on
+// Vercel, so "Continue with Google" needs its own Google Cloud OAuth client
+// instead. Set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET to enable it; the
+// broker-based grok-google/grok-x providers stay wired below but unrendered.
+const googleClientId = env("GOOGLE_CLIENT_ID");
+const googleClientSecret = env("GOOGLE_CLIENT_SECRET");
+
 /** True when federated sign-in is active (real auth is enforced). */
 export const authConfigured =
   !authDisabled && Boolean(grokClientId && grokClientSecret);
@@ -212,6 +221,12 @@ export const auth = betterAuth({
 
   // Local email/password — toggled only via `./email-password` (not a plugin).
   ...(emailAndPasswordEnabled ? { emailAndPassword: { enabled: true } } : {}),
+
+  // Direct Google OAuth — see the comment on googleClientId above. Only active
+  // when both env vars are set; otherwise the Google button is hidden client-side.
+  ...(googleClientId && googleClientSecret
+    ? { socialProviders: { google: { clientId: googleClientId, clientSecret: googleClientSecret } } }
+    : {}),
 
   // `__Host-` prefixed cookies: the browser REFUSES any same-named cookie that
   // carries a `Domain` attribute, so a sibling `*.grok.me` app cannot "toss" a

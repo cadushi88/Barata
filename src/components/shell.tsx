@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { InstallPrompt } from "@/components/install-prompt";
 import { LayoutGrid, Store, ClipboardList, Camera, UserRound } from "lucide-react";
 
 const tabs = [
@@ -66,6 +67,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+
+      <InstallPrompt />
 
       <main className="mx-auto w-full max-w-6xl px-4 py-5 pb-28 md:py-8 md:pb-10">{children}</main>
 

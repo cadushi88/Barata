@@ -48,7 +48,7 @@ function unescapeHtml(value) {
 }
 
 /** 6-digit hex for the og.grok.me placeholder, or "" if site.color is missing/invalid. */
-function placeholderCardColor(site = {}) {
+export function placeholderCardColor(site = {}) {
   const raw = String(site.color ?? "").trim();
   const hex = raw.startsWith("#") ? raw.slice(1) : raw;
   return /^[0-9a-fA-F]{6}$/.test(hex) ? hex : "";
@@ -157,8 +157,42 @@ export function renderInstallPageHtml(template, { host, url } = {}) {
     .replaceAll("{{APP_URL}}", escapeHtml(stripInstallParams(url)));
 }
 
-export function renderWebManifest(hostHeader) {
-  const name = appNameFromHost(hostHeader);
+/** Extra icon files an app can add beyond the platform-default 180px one. */
+export function detectExtraIcons(cwd = process.cwd()) {
+  return {
+    icon512: existsSync(join(cwd, "public/__grok/icon-512.png")),
+    maskable512: existsSync(join(cwd, "public/__grok/icon-512-maskable.png")),
+  };
+}
+
+/**
+ * `site.title`/`site.color` (the same per-app config the OG card already
+ * reads from `src/lib/og/site.json`) override the generic platform name and
+ * black theme when present, so an app hosted off a `*.grok.me` subdomain
+ * (where `appNameFromHost` has nothing to go on) still gets its real name
+ * and brand color instead of "Grok App" on black.
+ */
+export function renderWebManifest(hostHeader, { site = {}, icons = {} } = {}) {
+  const name = String(site.title ?? "").trim() || appNameFromHost(hostHeader);
+  const color = placeholderCardColor(site);
+  const themeColor = color ? `#${color}` : "#000000";
+  const manifestIcons = [{ src: "/__grok/icon-180.png", sizes: "180x180", type: "image/png" }];
+  if (icons.icon512) {
+    manifestIcons.push({
+      src: "/__grok/icon-512.png",
+      sizes: "512x512",
+      type: "image/png",
+      purpose: "any",
+    });
+  }
+  if (icons.maskable512) {
+    manifestIcons.push({
+      src: "/__grok/icon-512-maskable.png",
+      sizes: "512x512",
+      type: "image/png",
+      purpose: "maskable",
+    });
+  }
   return JSON.stringify(
     {
       name,
@@ -167,15 +201,9 @@ export function renderWebManifest(hostHeader) {
       start_url: "/",
       scope: "/",
       display: "standalone",
-      background_color: "#000000",
-      theme_color: "#000000",
-      icons: [
-        {
-          src: "/__grok/icon-180.png",
-          sizes: "180x180",
-          type: "image/png",
-        },
-      ],
+      background_color: themeColor,
+      theme_color: themeColor,
+      icons: manifestIcons,
     },
     null,
     2,
@@ -280,7 +308,7 @@ export function snapshotOgIdentity(cwd = process.cwd()) {
   if (existsSync(join(cwd, "public/x-banner.jpg"))) {
     site.banner = site.banner || "/x-banner.jpg";
   }
-  return { site };
+  return { site, icons: detectExtraIcons(cwd) };
 }
 
 export function customOgAssetPath(cwd = process.cwd()) {
