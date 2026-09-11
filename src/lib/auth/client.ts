@@ -37,8 +37,28 @@ export const authClient = createAuthClient({
  */
 export const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
 
+/**
+ * Whether to render the "Continue with Google" button. Set VITE_GOOGLE_LOGIN_ENABLED=true
+ * once GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are configured on the server (see
+ * signInWithGoogle) — kept off by default so the button doesn't appear before
+ * real credentials exist.
+ */
+export const googleLoginEnabled = import.meta.env.VITE_GOOGLE_LOGIN_ENABLED === "true";
+
 /** The upstream providers to render sign-in buttons for. */
 export { GROK_PROVIDERS };
+
+/**
+ * "Continue with Google" via Better Auth's native Google provider (server.ts's
+ * `socialProviders.google`) — a normal top-level OAuth redirect, independent of
+ * the Grok broker/`signIn()` above. Only works when the server has
+ * GOOGLE_CLIENT_ID/SECRET configured; the login page hides the button otherwise.
+ */
+export async function signInWithGoogle(callbackURL = "/"): Promise<void> {
+  const { data, error } = await authClient.signIn.social({ provider: "google", callbackURL });
+  if (error) throw new Error(error.message ?? "Sign-in failed");
+  if (data?.url) window.location.href = data.url;
+}
 
 // ── Live-preview bearer token ────────────────────────────────────────────────
 // The embedded preview iframe has partitioned cookies, so we keep the session's

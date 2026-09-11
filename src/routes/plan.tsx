@@ -68,7 +68,7 @@ function PlanPage() {
                 ["Curaçao BV + KvK + vestigingsvergunning + CRIB", "$3,500 – $6,000"],
                 ["Domain, hosting, database (year 1)", "$200 – $600"],
                 ["Apple + Google developer accounts (when you wrap native)", "$124"],
-                ["xAI / OCR usage buffer", "$300 – $800"],
+                ["Anthropic / OCR usage buffer", "$300 – $800"],
                 ["Legal templates, privacy, terms", "$400 – $1,000"],
                 ["Seed field work (shoppers photographing 4 weeks of receipts)", "$800 – $1,500"],
                 ["Launch marketing (FB/IG local, radio spot, WhatsApp groups)", "$1,500 – $3,000"],

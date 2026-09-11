@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { GROK_PROVIDERS, authEnabled, authClient, signIn } from "@/lib/auth/client";
+import { authEnabled, authClient, googleLoginEnabled, signInWithGoogle } from "@/lib/auth/client";
 import { useState } from "react";
 
 export const Route = createFileRoute("/login")({ component: Login });
@@ -11,6 +11,17 @@ function Login() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  async function onGoogle() {
+    setBusy(true);
+    setError(null);
+    try {
+      await signInWithGoogle("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sign in");
+      setBusy(false);
+    }
+  }
 
   async function onEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -43,23 +54,23 @@ function Login() {
         </div>
         {authEnabled ? (
           <>
-            <div className="space-y-2">
-              {GROK_PROVIDERS.map((p) => (
+            {googleLoginEnabled ? (
+              <>
                 <button
-                  key={p.providerId}
                   type="button"
-                  onClick={() => signIn(p.providerId, { callbackURL: "/" })}
-                  className="w-full rounded-xl border border-line bg-bg px-4 py-2.5 text-sm font-medium hover:bg-line/40"
+                  disabled={busy}
+                  onClick={onGoogle}
+                  className="w-full rounded-xl border border-line bg-bg px-4 py-2.5 text-sm font-medium hover:bg-line/40 disabled:opacity-60"
                 >
-                  Continue with {p.label}
+                  Continue with Google
                 </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3 text-xs text-faint">
-              <span className="h-px flex-1 bg-line" />
-              or email
-              <span className="h-px flex-1 bg-line" />
-            </div>
+                <div className="flex items-center gap-3 text-xs text-faint">
+                  <span className="h-px flex-1 bg-line" />
+                  or email
+                  <span className="h-px flex-1 bg-line" />
+                </div>
+              </>
+            ) : null}
             <form onSubmit={onEmail} className="space-y-3">
               {mode === "up" ? (
                 <input
