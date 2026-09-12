@@ -53,8 +53,17 @@ export const getProductPhotoMeta = createServerFn({ method: "GET" })
   .validator((input: { productId: number }) => z.object({ productId: z.number().int().positive() }).parse(input))
   .handler(async ({ data }) => {
     const sql = await getSql();
-    const rows = await sql<{ content_type: string }>`
-      select content_type from product_photos where product_id = ${data.productId}
+    const rows = await sql<{ content_type: string; uploaded_at: string | Date }>`
+      select content_type, uploaded_at from product_photos where product_id = ${data.productId}
     `;
-    return { contentType: rows[0]?.content_type ?? null };
+    const row = rows[0];
+    // `uploadedAt` (epoch ms) doubles as a cache-busting version: the API route
+    // sends `cache-control: public, max-age=300` and the <img> tag's own src
+    // never changes on re-upload, so without a version query param a browser
+    // (and any reload within that window) would just keep showing the OLD
+    // cached photo after an admin replaces it.
+    return {
+      contentType: row?.content_type ?? null,
+      uploadedAt: row ? new Date(row.uploaded_at).getTime() : null,
+    };
   });

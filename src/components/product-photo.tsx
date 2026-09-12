@@ -1,5 +1,5 @@
 import { productPhoto } from "@/lib/product-photo";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getProductPhotoMeta } from "@/lib/server/product-photos";
 
@@ -37,6 +37,16 @@ export function ProductPhoto({
     staleTime: 30_000,
   });
 
+  // Once the real photo has 404'd (none uploaded yet) `stage` moves past 0 and
+  // stays there — nothing else was retrying the real endpoint. Without this, a
+  // fresh upload on THIS page never appears: the admin who just uploaded it
+  // keeps seeing the stock photo / logo fallback they were already showing,
+  // and has to reload the page to see their own upload took effect.
+  const uploadedAt = meta.data?.uploadedAt ?? null;
+  useEffect(() => {
+    if (uploadedAt !== null) setStage(0);
+  }, [uploadedAt]);
+
   if (size === "hero" && meta.isLoading) {
     return <div className={`animate-pulse bg-line/60 ${box}`} aria-hidden />;
   }
@@ -56,7 +66,11 @@ export function ProductPhoto({
   }
 
   const staticSrc = productPhoto(slug);
-  const src = stage === 0 ? `/api/product-photo/${productId}` : stage === 1 ? staticSrc : undefined;
+  // Cache-bust with the upload version when we have one (hero size only — see
+  // above) so a re-upload shows immediately instead of serving the previous
+  // photo out of the browser's HTTP cache for up to 5 minutes.
+  const realSrc = `/api/product-photo/${productId}${uploadedAt !== null ? `?v=${uploadedAt}` : ""}`;
+  const src = stage === 0 ? realSrc : stage === 1 ? staticSrc : undefined;
 
   if (!src) {
     return (

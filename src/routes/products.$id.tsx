@@ -35,9 +35,17 @@ function ProductPage() {
   const stores = useQuery({ queryKey: ["stores"], queryFn: () => listStores() });
   const [storeId, setStoreId] = useState("");
   const [amount, setAmount] = useState("");
+  const [priceError, setPriceError] = useState<string | null>(null);
+  // Mirrors the "Added ✓" confirmation used on the catalog cards — reverts on its
+  // own after a moment so the button doesn't get stuck announcing an old click.
+  const [justAdded, setJustAdded] = useState(false);
   const addL = useMutation({
     mutationFn: () => addToList({ data: { productId: pid } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["list"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["list"] });
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 1500);
+    },
   });
   // `isPending` only flips on the next render, so two clicks landing in the same tick
   // both pass it and insert the price twice. The ref closes that window synchronously.
@@ -115,10 +123,11 @@ function ProductPage() {
             {user ? (
               <button
                 type="button"
+                disabled={addL.isPending || justAdded}
                 onClick={() => addL.mutate()}
-                className="h-11 w-full rounded-full bg-primary px-4 text-sm font-medium text-primary-fg sm:w-auto"
+                className="h-11 w-full rounded-full bg-primary px-4 text-sm font-medium text-primary-fg disabled:opacity-70 sm:w-auto"
               >
-                Add to list
+                {addL.isPending ? "Adding…" : justAdded ? "Added ✓" : "Add to list"}
               </button>
             ) : null}
             </div>
@@ -240,7 +249,12 @@ function ProductPage() {
               onSubmit={(e) => {
                 e.preventDefault();
                 if (submitting.current) return;
-                if (storeId && Number(amount) > 0) {
+                if (!(Number(amount) > 0)) {
+                  setPriceError("Enter a price greater than 0");
+                  return;
+                }
+                setPriceError(null);
+                if (storeId) {
                   submitting.current = true;
                   addP.mutate();
                 }
@@ -266,9 +280,14 @@ function ProductPage() {
                 <span className="mb-1 block text-muted">Price (XCG)</span>
                 <input
                   className="h-11 w-full rounded-xl border border-line bg-bg px-3 tabular-nums sm:w-28"
+                  type="number"
                   inputMode="decimal"
+                  step="0.01"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    if (priceError) setPriceError(null);
+                  }}
                   required
                 />
               </label>
@@ -279,6 +298,7 @@ function ProductPage() {
               >
                 {addP.isPending ? "Saving…" : "Submit price"}
               </button>
+              {priceError ? <span className="text-sm text-warn">{priceError}</span> : null}
               {addP.isSuccess ? <span className="text-sm text-good">Submitted for review</span> : null}
               {addP.isError ? <span className="text-sm text-warn">Could not save</span> : null}
             </form>

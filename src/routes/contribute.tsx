@@ -10,6 +10,47 @@ import { xcg } from "@/lib/money";
 
 export const Route = createFileRoute("/contribute")({ component: ContributePage });
 
+const RECEIPT_MAX_DIMENSION = 1600;
+const RECEIPT_JPEG_QUALITY = 0.85;
+
+/**
+ * Downscales + re-encodes a photo to a JPEG data URL client-side before it goes
+ * anywhere near the network. A real phone photo is typically 2-8 MB of raw
+ * JPEG bytes, which base64 inflates by ~1.37x — comfortably past both
+ * `parseReceipt`'s 2.5 MB `imageDataUrl` cap and, for anything much past
+ * ~3.3 MB raw, Vercel's ~4.5 MB serverless request body limit. Reading the
+ * file with `FileReader.readAsDataURL` untouched (as this route used to)
+ * means the request either fails Zod validation or gets rejected by the
+ * platform before `parseReceipt` ever runs — indistinguishable, to whoever
+ * hit it, from "the AI doesn't work". 1600px keeps receipt text legible for
+ * the model while landing well under both ceilings.
+ */
+function compressReceiptImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Could not read image"));
+      img.onload = () => {
+        const scale = Math.min(1, RECEIPT_MAX_DIMENSION / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas unavailable"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", RECEIPT_JPEG_QUALITY));
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function ContributePage() {
   const { user, isPending } = useCurrentUserState();
   const stores = useQuery({ queryKey: ["stores"], queryFn: () => listStores() });
@@ -21,6 +62,7 @@ function ContributePage() {
   const [storeManuallySet, setStoreManuallySet] = useState(false);
   const [purchaseDate, setPurchaseDate] = useState<string>("");
   const [imageDataUrl, setImageDataUrl] = useState<string | undefined>();
+  const [imageError, setImageError] = useState<string | null>(null);
   // `isPending` only flips on the next render, so two clicks in the same tick both get
   // through and we parse (and store) the same receipt twice. The ref closes that window.
   const parsing = useRef(false);
@@ -124,16 +166,21 @@ function ContributePage() {
               className="mt-1 block w-full text-sm"
               onChange={(e) => {
                 const f = e.target.files?.[0];
+                setImageError(null);
                 if (!f) {
                   setImageDataUrl(undefined);
                   return;
                 }
-                const reader = new FileReader();
-                reader.onload = () => setImageDataUrl(String(reader.result));
-                reader.readAsDataURL(f);
+                compressReceiptImage(f)
+                  .then(setImageDataUrl)
+                  .catch(() => {
+                    setImageDataUrl(undefined);
+                    setImageError("That photo couldn't be read — try a different one.");
+                  });
               }}
             />
           </label>
+          {imageError ? <p className="text-sm text-warn">{imageError}</p> : null}
           <button
             type="submit"
             disabled={parse.isPending}
