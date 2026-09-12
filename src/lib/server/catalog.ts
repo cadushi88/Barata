@@ -404,6 +404,28 @@ export const addToList = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+/** Sets an item's shopping-list quantity directly — the stepper on /list uses this
+ * for both + and -, so decrementing doesn't require removing and re-adding (which
+ * would reset qty back to 1 via addToList's insert path). */
+export const setListQty = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { productId: number; qty: number }) =>
+    z
+      .object({
+        productId: z.number().int().positive(),
+        qty: z.number().int().min(1).max(999),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    await sql`
+      update shopping_list set qty = ${data.qty}
+      where user_id = ${context.userId} and product_id = ${data.productId}
+    `;
+    return { ok: true as const };
+  });
+
 export const removeFromList = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: { productId: number }) =>

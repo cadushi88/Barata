@@ -20,9 +20,16 @@ function Home() {
     queryKey: ["products", q, category],
     queryFn: () => searchProducts({ data: { q, category } }),
   });
+  // Tracks which product just got a confirmed "Added ✓" so the label can revert
+  // after a moment — without this the button gave no sign the click registered.
+  const [justAdded, setJustAdded] = useState<number | null>(null);
   const add = useMutation({
     mutationFn: (productId: number) => addToList({ data: { productId } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["list"] }),
+    onSuccess: (_data, productId) => {
+      qc.invalidateQueries({ queryKey: ["list"] });
+      setJustAdded(productId);
+      setTimeout(() => setJustAdded((cur) => (cur === productId ? null : cur)), 1500);
+    },
   });
 
   return (
@@ -160,10 +167,15 @@ function Home() {
                   {user ? (
                     <button
                       type="button"
-                      className="inline-flex h-10 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-fg"
+                      disabled={(add.isPending && add.variables === p.id) || justAdded === p.id}
+                      className="inline-flex h-10 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-fg disabled:opacity-70"
                       onClick={() => add.mutate(p.id)}
                     >
-                      Add to list
+                      {add.isPending && add.variables === p.id
+                        ? "Adding…"
+                        : justAdded === p.id
+                          ? "Added ✓"
+                          : "Add to list"}
                     </button>
                   ) : null}
                 </div>

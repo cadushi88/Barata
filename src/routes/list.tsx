@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell } from "@/components/shell";
-import { cheapestBasket, getList, removeFromList } from "@/lib/server/catalog";
+import { cheapestBasket, getList, removeFromList, setListQty } from "@/lib/server/catalog";
 import { xcg, num } from "@/lib/money";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { ProductPhoto } from "@/components/product-photo";
@@ -27,6 +27,12 @@ function ListPage() {
   });
   const rm = useMutation({
     mutationFn: (productId: number) => removeFromList({ data: { productId } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["list"] });
+    },
+  });
+  const setQty = useMutation({
+    mutationFn: (vars: { productId: number; qty: number }) => setListQty({ data: vars }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["list"] });
     },
@@ -83,9 +89,32 @@ function ListPage() {
                     </div>
                   </div>
                 </Link>
-                <button type="button" className="h-10 shrink-0 px-2 text-sm text-muted" onClick={() => rm.mutate(it.id)}>
-                  Remove
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex items-center gap-1 rounded-full border border-line">
+                    <button
+                      type="button"
+                      aria-label="Decrease quantity"
+                      disabled={num(it.qty) <= 1 || (setQty.isPending && setQty.variables?.productId === it.id)}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-base text-ink disabled:opacity-40"
+                      onClick={() => setQty.mutate({ productId: it.id, qty: num(it.qty) - 1 })}
+                    >
+                      −
+                    </button>
+                    <span className="w-5 text-center text-sm tabular-nums">{num(it.qty)}</span>
+                    <button
+                      type="button"
+                      aria-label="Increase quantity"
+                      disabled={setQty.isPending && setQty.variables?.productId === it.id}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-base text-ink disabled:opacity-40"
+                      onClick={() => setQty.mutate({ productId: it.id, qty: num(it.qty) + 1 })}
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button type="button" className="h-10 px-2 text-sm text-muted" onClick={() => rm.mutate(it.id)}>
+                    Remove
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

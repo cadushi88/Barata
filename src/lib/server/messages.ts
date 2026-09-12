@@ -7,6 +7,11 @@ import { z } from "zod";
 /** Most messages one account may send per hour — a plain text field with no other rate limit would otherwise be a free spam channel to the admin's dashboard. */
 const MAX_MESSAGES_PER_HOUR = 10;
 
+/** Longest message body accepted. Checked in the handler (not the validator) so
+ * exceeding it returns a specific `{ ok: false, error }` instead of a thrown
+ * ZodError, which the client couldn't tell apart from a real network failure. */
+const MAX_MESSAGE_LENGTH = 2000;
+
 export type MyMessageRow = {
   id: number;
   body: string;
@@ -18,8 +23,11 @@ export type MyMessageRow = {
 
 export const sendMessage = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { body: string }) => z.object({ body: z.string().trim().min(1).max(2000) }).parse(input))
+  .validator((input: { body: string }) => z.object({ body: z.string().trim().min(1) }).parse(input))
   .handler(async ({ data, context }) => {
+    if (data.body.length > MAX_MESSAGE_LENGTH) {
+      return { ok: false as const, error: `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` };
+    }
     const sql = await getSql();
     const [{ n: recent }] = await sql<{ n: number }>`
       select count(*)::int as n from messages
