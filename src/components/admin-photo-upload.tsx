@@ -55,10 +55,11 @@ export function AdminPhotoUpload({ productId }: { productId: number }) {
     mutationFn: (dataUrl: string) => uploadProductPhoto({ data: { productId, dataUrl } }),
     onSuccess: (res) => {
       if (res.ok) {
+        // ProductPhoto derives both its cache-busting query param and its
+        // fallback-vs-real-photo `stage` from this query's `uploadedAt`, so
+        // invalidating it is what makes a fresh (or replaced) upload actually
+        // show up on this page without a manual reload.
         qc.invalidateQueries({ queryKey: ["product-photo-meta", productId] });
-        // The <img> tag's src doesn't change on re-upload, so a browser cache would
-        // otherwise keep showing the old photo — force a fresh fetch.
-        qc.invalidateQueries({ queryKey: ["product-photo-nonce", productId] });
       }
     },
   });
