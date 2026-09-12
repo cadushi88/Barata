@@ -47,6 +47,7 @@ type Preview = { kind: "image"; url: string } | { kind: "pdf"; name: string };
 export function AdminPhotoUpload({ productId }: { productId: number }) {
   const qc = useQueryClient();
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,14 +65,17 @@ export function AdminPhotoUpload({ productId }: { productId: number }) {
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
+    setReadError(null);
     try {
       const isPdf = file.type === "application/pdf";
       const dataUrl = isPdf ? await readAsDataUrl(file) : await compressImage(file);
       setPreview(isPdf ? { kind: "pdf", name: file.name } : { kind: "image", url: dataUrl });
       upload.mutate(dataUrl);
     } catch {
-      // compressImage/readAsDataUrl's own promise rejection already covers unreadable
-      // files — nothing else to do here beyond not crashing the click handler.
+      // A file that's neither a decodable image nor a PDF (compressImage's <img>
+      // fails to load it) rejects here — without a message, that was a silent
+      // failure too: the click handler just did nothing.
+      setReadError("That file couldn't be read — choose an image or a PDF.");
     }
   }
 
@@ -100,6 +104,7 @@ export function AdminPhotoUpload({ productId }: { productId: number }) {
             too large, a dropped connection) rejects the mutation instead of resolving
             with { ok: false } — without this branch that case showed nothing at all. */}
         {upload.isError ? <span className="text-xs text-warn">Upload failed — try again</span> : null}
+        {readError ? <span className="text-xs text-warn">{readError}</span> : null}
       </div>
       {/* `capture` on this one hints the browser to open the camera directly rather than a file/photo picker — cameras only produce photos, so this input stays image-only. */}
       <input
