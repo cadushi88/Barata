@@ -9,6 +9,7 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -29,10 +30,15 @@ function Login() {
     setError(null);
     try {
       if (mode === "up") {
-        const r = await authClient.signUp.email({ email, password, name: name || email.split("@")[0] });
+        // signUp.email's generated client type omits `rememberMe` even though the server
+        // accepts it (its zod schema has a catch-all record intersection) — spreading a
+        // separately-typed object sidesteps the literal's excess-property check rather
+        // than reaching for `as any`.
+        const extra: { rememberMe: boolean } = { rememberMe };
+        const r = await authClient.signUp.email({ email, password, name: name || email.split("@")[0], ...extra });
         if (r.error) throw new Error(r.error.message || "Sign up failed");
       } else {
-        const r = await authClient.signIn.email({ email, password });
+        const r = await authClient.signIn.email({ email, password, rememberMe });
         if (r.error) throw new Error(r.error.message || "Sign in failed");
       }
       window.location.href = "/";
@@ -97,6 +103,15 @@ function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-line"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                Remember me
+              </label>
               {error ? <p className="text-sm text-warn">{error}</p> : null}
               <button
                 type="submit"
