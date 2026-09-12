@@ -32,9 +32,22 @@ function compressImage(file: File): Promise<string> {
   });
 }
 
+/** PDFs aren't re-encoded client-side (nothing to downscale) — just read as-is. */
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(file);
+  });
+}
+
+type Preview = { kind: "image"; url: string } | { kind: "pdf"; name: string };
+
 export function AdminPhotoUpload({ productId }: { productId: number }) {
   const qc = useQueryClient();
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,7 +55,7 @@ export function AdminPhotoUpload({ productId }: { productId: number }) {
     mutationFn: (dataUrl: string) => uploadProductPhoto({ data: { productId, dataUrl } }),
     onSuccess: (res) => {
       if (res.ok) {
-        qc.invalidateQueries({ queryKey: ["has-product-photo", productId] });
+        qc.invalidateQueries({ queryKey: ["product-photo-meta", productId] });
         // The <img> tag's src doesn't change on re-upload, so a browser cache would
         // otherwise keep showing the old photo — force a fresh fetch.
         qc.invalidateQueries({ queryKey: ["product-photo-nonce", productId] });
@@ -52,19 +65,23 @@ export function AdminPhotoUpload({ productId }: { productId: number }) {
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
+    setReadError(null);
     try {
-      const dataUrl = await compressImage(file);
-      setPreview(dataUrl);
+      const isPdf = file.type === "application/pdf";
+      const dataUrl = isPdf ? await readAsDataUrl(file) : await compressImage(file);
+      setPreview(isPdf ? { kind: "pdf", name: file.name } : { kind: "image", url: dataUrl });
       upload.mutate(dataUrl);
     } catch {
-      // compressImage's own promise rejection already covers unreadable files —
-      // nothing else to do here beyond not crashing the click handler.
+      // A file that's neither a decodable image nor a PDF (compressImage's <img>
+      // fails to load it) rejects here — without a message, that was a silent
+      // failure too: the click handler just did nothing.
+      setReadError("That file couldn't be read — choose an image or a PDF.");
     }
   }
 
   return (
     <div className="rounded-md border border-dashed border-line bg-surface/60 p-3">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-faint">Admin: product photo</p>
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-faint">Admin: product photo or PDF</p>
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -83,8 +100,13 @@ export function AdminPhotoUpload({ productId }: { productId: number }) {
         {upload.isPending ? <span className="text-xs text-muted">Uploading…</span> : null}
         {upload.data?.ok ? <span className="text-xs text-good">Saved</span> : null}
         {upload.data && !upload.data.ok ? <span className="text-xs text-warn">{upload.data.error}</span> : null}
+        {/* A thrown error (expired session, a request the platform itself rejected as
+            too large, a dropped connection) rejects the mutation instead of resolving
+            with { ok: false } — without this branch that case showed nothing at all. */}
+        {upload.isError ? <span className="text-xs text-warn">Upload failed — try again</span> : null}
+        {readError ? <span className="text-xs text-warn">{readError}</span> : null}
       </div>
-      {/* `capture` on this one hints the browser to open the camera directly rather than a file/photo picker. */}
+      {/* `capture` on this one hints the browser to open the camera directly rather than a file/photo picker — cameras only produce photos, so this input stays image-only. */}
       <input
         ref={cameraInputRef}
         type="file"
@@ -96,11 +118,19 @@ export function AdminPhotoUpload({ productId }: { productId: number }) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,application/pdf"
         className="hidden"
         onChange={(e) => handleFile(e.target.files?.[0])}
       />
-      {preview ? <img src={preview} alt="" className="mt-3 h-24 w-24 rounded-md object-cover" /> : null}
+      {preview?.kind === "image" ? (
+        <img src={preview.url} alt="" className="mt-3 h-24 w-24 rounded-md object-cover" />
+      ) : null}
+      {preview?.kind === "pdf" ? (
+        <div className="mt-3 flex max-w-xs items-center gap-2 rounded-md border border-line bg-bg px-3 py-2 text-xs">
+          <span className="shrink-0 rounded bg-ink px-1.5 py-0.5 font-semibold text-bg">PDF</span>
+          <span className="truncate text-muted">{preview.name}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
