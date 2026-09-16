@@ -1,13 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Shell } from "@/components/shell";
 import { cheapestBasket, getList, removeFromList, setListQty } from "@/lib/server/catalog";
 import { xcg, num } from "@/lib/money";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
 import { ProductPhoto } from "@/components/product-photo";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 
-export const Route = createFileRoute("/list")({ component: ListPage });
+export const Route = createFileRoute("/list")({
+  component: ListPage,
+  head: () => ({ meta: [{ title: "Your list — Barata" }] }),
+});
 
 function ListPage() {
   const { user, isPending } = useCurrentUserState();
@@ -25,16 +30,26 @@ function ListPage() {
     queryFn: () => cheapestBasket({ data: { items } }),
     enabled: items.length > 0,
   });
+  const authErrorMessage = useAuthErrorMessage();
+  const [rowError, setRowError] = useState<{ productId: number; message: string } | null>(null);
   const rm = useMutation({
     mutationFn: (productId: number) => removeFromList({ data: { productId } }),
-    onSuccess: () => {
+    onSuccess: (_data, productId) => {
+      setRowError((cur) => (cur?.productId === productId ? null : cur));
       qc.invalidateQueries({ queryKey: ["list"] });
+    },
+    onError: (err, productId) => {
+      setRowError({ productId, message: authErrorMessage(err, "Couldn't remove that item — try again.") });
     },
   });
   const setQty = useMutation({
     mutationFn: (vars: { productId: number; qty: number }) => setListQty({ data: vars }),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
+      setRowError((cur) => (cur?.productId === vars.productId ? null : cur));
       qc.invalidateQueries({ queryKey: ["list"] });
+    },
+    onError: (err, vars) => {
+      setRowError({ productId: vars.productId, message: authErrorMessage(err, "Couldn't update quantity — try again.") });
     },
   });
 
@@ -79,9 +94,9 @@ function ListPage() {
         <>
           <ul className="mt-6 space-y-2">
             {(list.data ?? []).map((it) => (
-              <li key={it.id} className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3 py-2">
+              <li key={it.id} className="flex min-h-12 flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3 py-2">
                 <Link to="/products/$id" params={{ id: String(it.id) }} className="flex min-w-0 items-center gap-3 text-ink no-underline">
-                  <ProductPhoto productId={it.id} slug={it.slug} name={it.name} size="thumb" />
+                  <ProductPhoto productId={it.id} slug={it.slug} name={it.name} size="thumb" imageUrl={it.image_url} />
                   <div className="min-w-0">
                     <div className="truncate">{it.name}</div>
                     <div className="text-xs text-faint">
@@ -115,11 +130,24 @@ function ListPage() {
                     Remove
                   </button>
                 </div>
+                {rowError?.productId === it.id ? (
+                  <p role="alert" className="basis-full text-xs text-warn">
+                    {rowError.message}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>
 
-          <h2 className="mt-10 font-display text-2xl">Cheapest full basket</h2>
+          <h2 className="mt-10 font-display text-2xl">
+            {winner && winner.missing > 0 ? "Cheapest matching basket" : "Cheapest full basket"}
+          </h2>
+          {winner && winner.missing > 0 ? (
+            <p className="mt-1 text-sm text-muted">
+              {winner.store.name} doesn't carry every item on your list — {winner.missing}{" "}
+              {winner.missing === 1 ? "item wasn't" : "items weren't"} found there.
+            </p>
+          ) : null}
           <div className="mt-4 grid gap-3">
             {(basket.data?.stores ?? []).map((s, i) => (
               <div

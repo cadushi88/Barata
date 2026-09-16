@@ -109,33 +109,38 @@ export const approveScrapedPrice = createServerFn({ method: "POST" })
   .validator((input: { id: number }) => z.object({ id: z.number().int().positive() }).parse(input))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
+    // Pre-check purely for a specific error message — the real guard against two
+    // near-simultaneous approve calls double-inserting into `prices` is the
+    // status='pending' condition on the UPDATE below (mirrors rejectScrapedPrice).
+    const [existing] = await sql<{ status: string; matched_product_id: number | null }>`
+      select status, matched_product_id from scraped_prices where id = ${data.id}
+    `;
+    if (!existing) return { ok: false as const, error: "Not found" };
+    if (existing.matched_product_id == null) {
+      return { ok: false as const, error: "No matched product — map it manually before approving" };
+    }
+    // Atomically claim the row: only a request that actually flips a still-pending
+    // row to 'approved' may proceed to insert into `prices`, so two overlapping
+    // approve calls (or an approve racing bulkApproveHighConfidence) can't both win.
     const [row] = await sql<{
       store_id: string;
-      matched_product_id: number | null;
+      matched_product_id: number;
       raw_price: string;
-      status: string;
       source: string;
       user_id: string | null;
       observed_at: string | null;
     }>`
-      select store_id, matched_product_id, raw_price::text as raw_price, status, source, user_id, observed_at::text as observed_at
-      from scraped_prices where id = ${data.id}
+      update scraped_prices set status = 'approved', reviewed_at = now(), reviewed_by = ${context.userId}
+      where id = ${data.id} and status = 'pending'
+      returning store_id, matched_product_id, raw_price::text as raw_price, source, user_id, observed_at::text as observed_at
     `;
-    if (!row) return { ok: false as const, error: "Not found" };
-    if (row.status !== "pending") return { ok: false as const, error: "Already reviewed" };
-    if (row.matched_product_id == null) {
-      return { ok: false as const, error: "No matched product — map it manually before approving" };
-    }
+    if (!row) return { ok: false as const, error: "Already reviewed" };
     await sql`
       insert into prices (product_id, store_id, amount, source, user_id, observed_at)
       values (
         ${row.matched_product_id}, ${row.store_id}, ${row.raw_price}, ${row.source}, ${row.user_id},
         ${row.observed_at ?? new Date().toISOString()}
       )
-    `;
-    await sql`
-      update scraped_prices set status = 'approved', reviewed_at = now(), reviewed_by = ${context.userId}
-      where id = ${data.id}
     `;
     return { ok: true as const };
   });
@@ -145,10 +150,15 @@ export const rejectScrapedPrice = createServerFn({ method: "POST" })
   .validator((input: { id: number }) => z.object({ id: z.number().int().positive() }).parse(input))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
-    await sql`
+    // Same `WHERE status = 'pending' RETURNING` guard as approveScrapedPrice: without
+    // it this silently reported success even when the row was already reviewed or
+    // didn't exist, which is how the id-not-found/already-handled case went unnoticed.
+    const [row] = await sql<{ id: number }>`
       update scraped_prices set status = 'rejected', reviewed_at = now(), reviewed_by = ${context.userId}
       where id = ${data.id} and status = 'pending'
+      returning id
     `;
+    if (!row) return { ok: false as const, error: "Already reviewed" };
     return { ok: true as const };
   });
 
@@ -161,7 +171,12 @@ export const bulkApproveHighConfidence = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const threshold = data.minConfidence ?? 0.85;
     const sql = await getSql();
-    const candidates = await sql<{
+    // One atomic UPDATE claims every still-pending, high-confidence row for this run
+    // in a single statement (WHERE status = 'pending' guards against overlap with a
+    // concurrent individual approveScrapedPrice/rejectScrapedPrice call — same guard
+    // as there, just applied set-wise) and RETURNING hands back exactly the rows this
+    // call actually claimed, replacing the former select-then-loop-of-queries.
+    const rows = await sql<{
       id: number;
       store_id: string;
       matched_product_id: number;
@@ -170,17 +185,29 @@ export const bulkApproveHighConfidence = createServerFn({ method: "POST" })
       user_id: string | null;
       observed_at: string | null;
     }>`
-      select id, store_id, matched_product_id, raw_price::text as raw_price, source, user_id, observed_at::text as observed_at
-      from scraped_prices
+      update scraped_prices set status = 'approved', reviewed_at = now(), reviewed_by = ${context.userId}
       where run_id = ${data.runId} and status = 'pending'
         and matched_product_id is not null and match_confidence >= ${threshold}
+      returning id, store_id, matched_product_id, raw_price::text as raw_price, source, user_id, observed_at::text as observed_at
     `;
-    for (const c of candidates) {
-      await sql`
-        insert into prices (product_id, store_id, amount, source, user_id, observed_at)
-        values (${c.matched_product_id}, ${c.store_id}, ${c.raw_price}, ${c.source}, ${c.user_id}, ${c.observed_at ?? new Date().toISOString()})
-      `;
-      await sql`update scraped_prices set status = 'approved', reviewed_at = now(), reviewed_by = ${context.userId} where id = ${c.id}`;
+    if (rows.length > 0) {
+      // Single multi-row INSERT instead of one query per row.
+      const cols = 6;
+      const valuesSql = rows
+        .map((_, i) => `(${Array.from({ length: cols }, (_, j) => `$${i * cols + j + 1}`).join(", ")})`)
+        .join(", ");
+      const params = rows.flatMap((r) => [
+        r.matched_product_id,
+        r.store_id,
+        r.raw_price,
+        r.source,
+        r.user_id,
+        r.observed_at ?? new Date().toISOString(),
+      ]);
+      await sql.query(
+        `insert into prices (product_id, store_id, amount, source, user_id, observed_at) values ${valuesSql}`,
+        params,
+      );
     }
-    return { ok: true as const, n: candidates.length };
+    return { ok: true as const, n: rows.length };
   });

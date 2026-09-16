@@ -5,6 +5,7 @@ import { listStores, searchProducts } from "@/lib/server/catalog";
 import { commitReceipt, parseReceipt } from "@/lib/server/receipts";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { RedirectToSignIn } from "@/lib/auth/gates";
+import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
 import { useRef, useState } from "react";
 import { xcg } from "@/lib/money";
 
@@ -63,21 +64,42 @@ function ContributePage() {
   const [purchaseDate, setPurchaseDate] = useState<string>("");
   const [imageDataUrl, setImageDataUrl] = useState<string | undefined>();
   const [imageError, setImageError] = useState<string | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [commitError, setCommitError] = useState<string | null>(null);
+  const authErrorMessage = useAuthErrorMessage();
   // `isPending` only flips on the next render, so two clicks in the same tick both get
   // through and we parse (and store) the same receipt twice. The ref closes that window.
   const parsing = useRef(false);
   const parse = useMutation({
     mutationFn: () => parseReceipt({ data: { text, storeId, imageDataUrl } }),
     onSuccess: (res) => {
-      if (!res.ok) return;
+      if (!res.ok) {
+        setParseError(res.error);
+        return;
+      }
+      setParseError(null);
       // Only auto-apply the AI's detected store if the user hasn't already picked one themselves.
       if (!storeManuallySet && res.detectedStoreId) setStoreId(res.detectedStoreId);
       if (res.purchaseDate) setPurchaseDate(res.purchaseDate);
+    },
+    onError: (err) => {
+      // A throw here (Unauthorized, or receipt text past the server's length cap) used
+      // to leave `parse.data` undefined and the UI showing a made-up generic message —
+      // this shows what the server actually said instead.
+      setParseError(
+        authErrorMessage(
+          err,
+          text.length > 20000
+            ? "That receipt is too long — try splitting it up."
+            : "Could not read that receipt — please try again.",
+        ),
+      );
     },
     onSettled: () => {
       parsing.current = false;
     },
   });
+  const committing = useRef(false);
   const commit = useMutation({
     mutationFn: () => {
       const items = (parse.data && parse.data.ok ? parse.data.items : [])
@@ -85,6 +107,15 @@ function ContributePage() {
         .map((i) => ({ productId: i.productId as number, amount: i.amount }));
       const receiptId = parse.data && parse.data.ok ? parse.data.receiptId : 0;
       return commitReceipt({ data: { receiptId: receiptId ?? 0, storeId, items, purchaseDate: purchaseDate || null } });
+    },
+    onSuccess: (res) => {
+      setCommitError(res.ok ? null : res.error);
+    },
+    onError: (err) => {
+      setCommitError(authErrorMessage(err, "Could not submit these prices. Please try again."));
+    },
+    onSettled: () => {
+      committing.current = false;
     },
   });
 
@@ -188,13 +219,9 @@ function ContributePage() {
           >
             {parse.isPending ? "Reading receipt…" : "Read with AI"}
           </button>
-          {parse.data && !parse.data.ok ? <p className="text-sm text-warn">{parse.data.error}</p> : null}
-          {/* A throw (e.g. receipt text past the 20 000-character server limit) leaves
-              `data` undefined, so without this the button click did nothing at all. */}
-          {parse.isError ? (
-            <p className="text-sm text-warn">
-              Could not read that receipt
-              {text.length > 20000 ? " — it is too long, try splitting it up" : ", please try again"}.
+          {parseError ? (
+            <p role="alert" className="text-sm text-warn">
+              {parseError}
             </p>
           ) : null}
         </form>
@@ -233,23 +260,24 @@ function ContributePage() {
                 type="button"
                 className="mt-4 h-11 rounded-xl bg-ink px-4 text-sm text-bg disabled:opacity-50"
                 disabled={commit.isPending || !parsed.items.some((i) => i.productId)}
-                onClick={() => commit.mutate()}
+                onClick={() => {
+                  if (committing.current) return;
+                  committing.current = true;
+                  commit.mutate();
+                }}
               >
                 {commit.isPending ? "Saving…" : "Submit matched prices"}
               </button>
-              {commit.data && commit.data.ok ? (
+              {commit.data && commit.data.ok && !commitError ? (
                 <p className="mt-2 text-sm text-good">
                   Submitted {commit.data.n} price{commit.data.n === 1 ? "" : "s"} for review — they'll appear in the
                   catalog once approved.
                 </p>
               ) : null}
-              {/* Publishing could fail silently: a rejected purchase date or a receipt the
-                  server won't accept left the button looking like it had done nothing. */}
-              {commit.data && !commit.data.ok ? (
-                <p className="mt-2 text-sm text-warn">{commit.data.error}</p>
-              ) : null}
-              {commit.isError ? (
-                <p className="mt-2 text-sm text-warn">Could not submit these prices. Please try again.</p>
+              {commitError ? (
+                <p role="alert" className="mt-2 text-sm text-warn">
+                  {commitError}
+                </p>
               ) : null}
             </>
           )}

@@ -5,9 +5,14 @@ import { Shell } from "@/components/shell";
 import { listCategories, getCatalogStats, searchProducts, addToList } from "@/lib/server/catalog";
 import { xcg, num } from "@/lib/money";
 import { ProductPhoto } from "@/components/product-photo";
+import { getProductPhotosMeta } from "@/lib/server/product-photos";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
 
-export const Route = createFileRoute("/")({ component: Home });
+export const Route = createFileRoute("/")({
+  component: Home,
+  head: () => ({ meta: [{ title: "Barata — Compare grocery prices" }] }),
+});
 
 function Home() {
   const [q, setQ] = useState("");
@@ -20,15 +25,30 @@ function Home() {
     queryKey: ["products", q, category],
     queryFn: () => searchProducts({ data: { q, category } }),
   });
+  // One batched query for every card's photo metadata instead of each
+  // <ProductPhoto> card firing its own — see getProductPhotosMeta.
+  const productIds = (products.data ?? []).map((p) => p.id);
+  const photosMeta = useQuery({
+    queryKey: ["product-photos-meta", productIds],
+    queryFn: () => getProductPhotosMeta({ data: { productIds } }),
+    enabled: productIds.length > 0,
+    staleTime: 30_000,
+  });
   // Tracks which product just got a confirmed "Added ✓" so the label can revert
   // after a moment — without this the button gave no sign the click registered.
   const [justAdded, setJustAdded] = useState<number | null>(null);
+  const [addError, setAddError] = useState<{ id: number; message: string } | null>(null);
+  const authErrorMessage = useAuthErrorMessage();
   const add = useMutation({
     mutationFn: (productId: number) => addToList({ data: { productId } }),
     onSuccess: (_data, productId) => {
+      setAddError(null);
       qc.invalidateQueries({ queryKey: ["list"] });
       setJustAdded(productId);
       setTimeout(() => setJustAdded((cur) => (cur === productId ? null : cur)), 1500);
+    },
+    onError: (err, productId) => {
+      setAddError({ id: productId, message: authErrorMessage(err, "Couldn't add that — try again.") });
     },
   });
 
@@ -123,7 +143,14 @@ function Home() {
             return (
               <article key={p.id} className="overflow-hidden rounded-md border border-line bg-surface">
                 <Link to="/products/$id" params={{ id: String(p.id) }} className="block no-underline">
-                  <ProductPhoto productId={p.id} slug={p.slug} name={p.name} size="card" />
+                  <ProductPhoto
+                    productId={p.id}
+                    slug={p.slug}
+                    name={p.name}
+                    size="card"
+                    photoMeta={photosMeta.data ? (photosMeta.data[p.id] ?? { contentType: null, uploadedAt: null }) : undefined}
+                    imageUrl={p.image_url}
+                  />
                 </Link>
                 <div className="p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -169,7 +196,10 @@ function Home() {
                       type="button"
                       disabled={(add.isPending && add.variables === p.id) || justAdded === p.id}
                       className="inline-flex h-10 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-fg disabled:opacity-70"
-                      onClick={() => add.mutate(p.id)}
+                      onClick={() => {
+                        setAddError(null);
+                        add.mutate(p.id);
+                      }}
                     >
                       {add.isPending && add.variables === p.id
                         ? "Adding…"
@@ -179,6 +209,11 @@ function Home() {
                     </button>
                   ) : null}
                 </div>
+                {addError?.id === p.id ? (
+                  <p role="alert" className="mt-2 text-xs text-warn">
+                    {addError.message}
+                  </p>
+                ) : null}
                 </div>
               </article>
             );

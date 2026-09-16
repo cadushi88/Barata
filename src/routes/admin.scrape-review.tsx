@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   approveScrapedPrice,
   bulkApproveHighConfidence,
@@ -10,6 +10,7 @@ import {
   triggerScrapeRun,
 } from "@/lib/server/scrape-review";
 import { xcg } from "@/lib/money";
+import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
 
 export const Route = createFileRoute("/admin/scrape-review")({ component: ScrapeReviewPage });
 
@@ -24,22 +25,65 @@ function ScrapeReviewPage() {
     enabled: activeRunId != null,
   });
 
+  const authErrorMessage = useAuthErrorMessage();
+  const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null);
+  // `isPending` only flips on the next render, so two clicks on the same row landing in
+  // the same tick both pass it — this tracks in-flight row ids synchronously instead.
+  const inFlight = useRef<Set<number>>(new Set());
+
   const trigger = useMutation({
     mutationFn: () => triggerScrapeRun(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["scrape-runs"] }),
   });
   const approve = useMutation({
     mutationFn: (id: number) => approveScrapedPrice({ data: { id } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["scrape-run-detail", activeRunId] }),
+    onSuccess: (res, id) => {
+      if (!res.ok) {
+        setRowError({ id, message: res.error });
+        return;
+      }
+      setRowError((cur) => (cur?.id === id ? null : cur));
+      qc.invalidateQueries({ queryKey: ["scrape-run-detail", activeRunId] });
+    },
+    onError: (err, id) => {
+      setRowError({ id, message: authErrorMessage(err, "Couldn't approve — try again.") });
+    },
+    onSettled: (_data, _err, id) => {
+      inFlight.current.delete(id);
+    },
   });
   const reject = useMutation({
     mutationFn: (id: number) => rejectScrapedPrice({ data: { id } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["scrape-run-detail", activeRunId] }),
+    onSuccess: (res, id) => {
+      if (!res.ok) {
+        setRowError({ id, message: res.error });
+        return;
+      }
+      setRowError((cur) => (cur?.id === id ? null : cur));
+      qc.invalidateQueries({ queryKey: ["scrape-run-detail", activeRunId] });
+    },
+    onError: (err, id) => {
+      setRowError({ id, message: authErrorMessage(err, "Couldn't reject — try again.") });
+    },
+    onSettled: (_data, _err, id) => {
+      inFlight.current.delete(id);
+    },
   });
   const bulkApprove = useMutation({
     mutationFn: () => bulkApproveHighConfidence({ data: { runId: activeRunId as number } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["scrape-run-detail", activeRunId] }),
   });
+
+  function approveRow(id: number) {
+    if (inFlight.current.has(id)) return;
+    inFlight.current.add(id);
+    approve.mutate(id);
+  }
+  function rejectRow(id: number) {
+    if (inFlight.current.has(id)) return;
+    inFlight.current.add(id);
+    reject.mutate(id);
+  }
 
   const pending = (detail.data?.prices ?? []).filter((p) => p.status === "pending");
   const matched = pending.filter((p) => p.matched_product_id != null);
@@ -160,21 +204,26 @@ function ScrapeReviewPage() {
                       <span className="tabular-nums font-medium">{xcg(Number(p.raw_price))}</span>
                       <button
                         type="button"
-                        disabled={!p.matched_product_id || approve.isPending}
+                        disabled={!p.matched_product_id || (approve.isPending && approve.variables === p.id)}
                         className="h-8 rounded-lg bg-ink px-3 text-xs text-bg disabled:opacity-40"
-                        onClick={() => approve.mutate(p.id)}
+                        onClick={() => approveRow(p.id)}
                       >
                         Approve
                       </button>
                       <button
                         type="button"
-                        disabled={reject.isPending}
+                        disabled={reject.isPending && reject.variables === p.id}
                         className="h-8 rounded-lg border border-line px-3 text-xs text-ink disabled:opacity-40"
-                        onClick={() => reject.mutate(p.id)}
+                        onClick={() => rejectRow(p.id)}
                       >
                         Reject
                       </button>
                     </div>
+                    {rowError?.id === p.id ? (
+                      <p role="alert" className="basis-full text-xs text-warn">
+                        {rowError.message}
+                      </p>
+                    ) : null}
                   </div>
                 ))}
                 {pending.length === 0 ? <p className="text-sm text-faint">Nothing pending for this run.</p> : null}

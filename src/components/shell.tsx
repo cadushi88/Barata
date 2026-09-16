@@ -21,13 +21,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg text-ink">
       <header className="sticky top-0 z-20 border-b border-line bg-bg/95 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 md:h-16">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 lg:h-16">
           <Link to="/" className="flex min-w-0 items-baseline gap-2 no-underline">
-            <span className="font-display text-xl font-semibold tracking-tight text-ink md:text-2xl">Barata</span>
+            <span className="font-display text-xl font-semibold tracking-tight text-ink lg:text-2xl">Barata</span>
             <span className="hidden text-xs text-muted lg:inline">Curaçao prices</span>
           </Link>
 
-          <nav className="ml-6 hidden items-center gap-1 text-sm md:flex">
+          <nav className="ml-6 hidden items-center gap-1 text-sm lg:flex">
             {tabs.map((t) => {
               const on = t.match(pathname);
               return (
@@ -88,10 +88,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       <InstallPrompt />
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-5 pb-28 md:py-8 md:pb-10">{children}</main>
+      <main className="mx-auto w-full max-w-6xl px-4 py-5 pb-28 lg:py-8 lg:pb-10">{children}</main>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm lg:hidden"
         aria-label="Primary"
       >
         <div className="grid grid-cols-5">

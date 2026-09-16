@@ -31,16 +31,26 @@ function ReceiptsPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t border-line">
-                <td className="px-4 py-3">{r.user_name ?? r.user_email ?? "—"}</td>
-                <td className="px-4 py-3">{r.store_name ?? "—"}</td>
-                <td className="px-4 py-3 tabular-nums">{r.item_count}</td>
-                <td className="px-4 py-3">{r.purchase_date ?? "—"}</td>
-                <td className={`px-4 py-3 ${STATUS_TONE[r.status] ?? ""}`}>{r.status.replace("_", " ")}</td>
-                <td className="px-4 py-3 text-faint">{new Date(r.created_at).toLocaleString()}</td>
-              </tr>
-            ))}
+            {receipts.isLoading
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="border-t border-line">
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className="h-4 w-full max-w-28 animate-pulse rounded bg-line/60" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              : rows.map((r) => (
+                  <tr key={r.id} className="border-t border-line">
+                    <td className="px-4 py-3">{r.user_name ?? r.user_email ?? "—"}</td>
+                    <td className="px-4 py-3">{r.store_name ?? "—"}</td>
+                    <td className="px-4 py-3 tabular-nums">{r.item_count}</td>
+                    <td className="px-4 py-3">{r.purchase_date ?? "—"}</td>
+                    <td className={`px-4 py-3 ${STATUS_TONE[r.status] ?? ""}`}>{r.status.replace("_", " ")}</td>
+                    <td className="px-4 py-3 text-faint">{new Date(r.created_at).toLocaleString()}</td>
+                  </tr>
+                ))}
           </tbody>
         </table>
         {!receipts.isLoading && rows.length === 0 ? <p className="p-4 text-sm text-faint">No receipts yet.</p> : null}

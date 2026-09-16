@@ -11,7 +11,12 @@ import { RequireAdmin } from "@/lib/auth/gates";
  * wrapping itself again (a page that also renders `<Shell>`/`<RequireAdmin>`
  * would nest two headers/redirects, not one).
  */
-export const Route = createFileRoute("/admin")({ component: AdminLayout });
+export const Route = createFileRoute("/admin")({
+  component: AdminLayout,
+  // Applies to every /admin/* page (a child route's own `head()` would still
+  // win — see headContentUtils's title-merge — but none currently sets one).
+  head: () => ({ meta: [{ title: "Admin — Barata" }] }),
+});
 
 function AdminLayout() {
   return (

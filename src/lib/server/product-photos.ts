@@ -67,3 +67,42 @@ export const getProductPhotoMeta = createServerFn({ method: "GET" })
       uploadedAt: row ? new Date(row.uploaded_at).getTime() : null,
     };
   });
+
+/** Most products a single grid/list view may batch-fetch photo metadata for in one call. */
+const MAX_BATCH_PHOTO_IDS = 500;
+
+export type ProductPhotoMeta = { contentType: string | null; uploadedAt: number | null };
+
+/**
+ * Batched sibling of `getProductPhotoMeta`: ONE query for every product id a grid
+ * is about to render, instead of the grid firing `getProductPhotoMeta` once per
+ * card. A catalog page with a few hundred cards used to mean a few hundred
+ * separate `select ... where product_id = $1` round trips just to find out which
+ * products even have an uploaded photo — this replaces all of them with a single
+ * `where product_id = any($1)`.
+ */
+export const getProductPhotosMeta = createServerFn({ method: "GET" })
+  .validator((input: { productIds: number[] }) =>
+    z
+      .object({
+        productIds: z.array(z.number().int().positive()).max(MAX_BATCH_PHOTO_IDS),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const result: Record<number, ProductPhotoMeta> = {};
+    if (data.productIds.length === 0) return result;
+    const sql = await getSql();
+    const rows = await sql<{ product_id: number; content_type: string; uploaded_at: string | Date }>`
+      select product_id, content_type, uploaded_at
+      from product_photos
+      where product_id = any(${data.productIds})
+    `;
+    for (const row of rows) {
+      result[row.product_id] = {
+        contentType: row.content_type,
+        uploadedAt: new Date(row.uploaded_at).getTime(),
+      };
+    }
+    return result;
+  });

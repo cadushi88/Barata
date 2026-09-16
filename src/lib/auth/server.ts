@@ -35,7 +35,7 @@ import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
-import { ensureDbReady, getPglite } from "../db";
+import { dbSource, ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
@@ -197,11 +197,35 @@ const grokOAuthPlugin = authConfigured
     })
   : null;
 
+// Deployed apps (real Postgres via DATABASE_URL) MUST supply a stable
+// BETTER_AUTH_SECRET. Falling back to `previewAuthSecret()` there would mint a
+// FRESH random secret per serverless process — every cold start (and Vercel
+// spins up many, unpredictably) gets its own secret, so a session cookie
+// signed by one instance fails signature verification on another. That
+// surfaces as sessions randomly going "Unauthorized" or a signed-in visitor
+// abruptly appearing signed out, with no code-level bug to reproduce locally
+// (dev runs one long-lived process, so it only ever sees one secret). Fail
+// loudly at startup instead of shipping that silently.
+const explicitAuthSecret = env("BETTER_AUTH_SECRET");
+if (!explicitAuthSecret && dbSource === "neon") {
+  console.error(
+    "[auth] BETTER_AUTH_SECRET is not set. A real database (DATABASE_URL) is " +
+      "configured, so this would sign sessions with a random secret that changes " +
+      "on every serverless cold start, breaking sessions unpredictably in " +
+      "production. Set BETTER_AUTH_SECRET in your deployment environment " +
+      "(e.g. Vercel → Settings → Environment Variables) and redeploy.",
+  );
+  throw new Error(
+    "BETTER_AUTH_SECRET must be set when DATABASE_URL is configured — refusing " +
+      "to start with a random per-process fallback secret in production.",
+  );
+}
+
 export const auth = betterAuth({
   baseURL,
-  // Deployed apps inject BETTER_AUTH_SECRET. Preview: process-stable secret on
-  // globalThis so HMR doesn't invalidate PGLite-backed sessions (see above).
-  secret: env("BETTER_AUTH_SECRET") ?? previewAuthSecret(),
+  // Deployed apps inject BETTER_AUTH_SECRET (enforced above). Preview: process-
+  // stable secret on globalThis so HMR doesn't invalidate PGLite-backed sessions.
+  secret: explicitAuthSecret ?? previewAuthSecret(),
   database,
 
   // CSRF / origin check for credentialed auth POSTs (email sign-up/sign-in, …).

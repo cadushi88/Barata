@@ -1,16 +1,30 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell } from "@/components/shell";
-import { addToList, getProduct, getPriceHistory, listStores, addPrice } from "@/lib/server/catalog";
+import { addToList, getProduct, getPriceHistory, listStores, addPrice, MAX_PRICE_XCG } from "@/lib/server/catalog";
 import { xcg, num } from "@/lib/money";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { ProductPhoto } from "@/components/product-photo";
 import { AdminPhotoUpload } from "@/components/admin-photo-upload";
+import { PriceHistoryChart } from "@/components/price-history-chart";
 import { useState, useMemo, useRef } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
-export const Route = createFileRoute("/products/$id")({ component: ProductPage });
+export const Route = createFileRoute("/products/$id")({
+  component: ProductPage,
+  // Only for the SEO title below — the page's own data (prices, history) still
+  // comes entirely from the component's existing `useQuery` calls, unchanged.
+  loader: async ({ params }) => {
+    const id = Number(params.id);
+    if (!Number.isInteger(id) || id <= 0) return { product: null };
+    const { product } = await getProduct({ data: { id } });
+    return { product };
+  },
+  head: ({ loaderData }) => ({
+    meta: [{ title: loaderData?.product ? `${loaderData.product.name} — Barata` : "Product — Barata" }],
+  }),
+});
 
 function ProductPage() {
   const { id } = Route.useParams();
@@ -39,24 +53,43 @@ function ProductPage() {
   // Mirrors the "Added ✓" confirmation used on the catalog cards — reverts on its
   // own after a moment so the button doesn't get stuck announcing an old click.
   const [justAdded, setJustAdded] = useState(false);
+  const [addListError, setAddListError] = useState<string | null>(null);
+  const authErrorMessage = useAuthErrorMessage();
+  // `isPending` only flips on the next render, so two clicks landing in the same tick
+  // both pass it and fire the mutation twice. The ref closes that window synchronously.
+  const addListSubmitting = useRef(false);
   const addL = useMutation({
     mutationFn: () => addToList({ data: { productId: pid } }),
     onSuccess: () => {
+      setAddListError(null);
       qc.invalidateQueries({ queryKey: ["list"] });
       setJustAdded(true);
       setTimeout(() => setJustAdded(false), 1500);
     },
+    onError: (err) => {
+      setAddListError(authErrorMessage(err, "Couldn't add that — try again."));
+    },
+    onSettled: () => {
+      addListSubmitting.current = false;
+    },
   });
-  // `isPending` only flips on the next render, so two clicks landing in the same tick
-  // both pass it and insert the price twice. The ref closes that window synchronously.
+  const [priceSubmitError, setPriceSubmitError] = useState<string | null>(null);
   const submitting = useRef(false);
   const addP = useMutation({
     mutationFn: () => addPrice({ data: { productId: pid, storeId, amount: Number(amount) } }),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (!data.ok) {
+        setPriceSubmitError(data.error);
+        return;
+      }
+      setPriceSubmitError(null);
       setAmount("");
       qc.invalidateQueries({ queryKey: ["product", pid] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["price-history", pid] });
+    },
+    onError: (err) => {
+      setPriceSubmitError(authErrorMessage(err, "Could not save — try again."));
     },
     onSettled: () => {
       submitting.current = false;
@@ -88,8 +121,6 @@ function ProductPage() {
     return { series, storeNames, dates, hasEnoughData: dates.length >= 2 };
   }, [history.data]);
 
-  const chartColors = ["#0E6E5E", "#D98E4A", "#6B7570", "#0A5548", "#B0562F", "#3B6E8F"];
-
   return (
     <Shell>
       {q.isLoading ? (
@@ -103,7 +134,7 @@ function ProductPage() {
           </p>
           <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,22rem)_1fr] md:items-start">
             <div className="space-y-3">
-              <ProductPhoto productId={product.id} slug={product.slug} name={product.name} size="hero" />
+              <ProductPhoto productId={product.id} slug={product.slug} name={product.name} size="hero" imageUrl={product.image_url} />
               {isAdmin ? <AdminPhotoUpload productId={product.id} /> : null}
             </div>
             <div>
@@ -121,14 +152,25 @@ function ProductPage() {
               ) : null}
             </div>
             {user ? (
-              <button
-                type="button"
-                disabled={addL.isPending || justAdded}
-                onClick={() => addL.mutate()}
-                className="h-11 w-full rounded-full bg-primary px-4 text-sm font-medium text-primary-fg disabled:opacity-70 sm:w-auto"
-              >
-                {addL.isPending ? "Adding…" : justAdded ? "Added ✓" : "Add to list"}
-              </button>
+              <div className="w-full sm:w-auto">
+                <button
+                  type="button"
+                  disabled={addL.isPending || justAdded}
+                  onClick={() => {
+                    if (addListSubmitting.current) return;
+                    addListSubmitting.current = true;
+                    addL.mutate();
+                  }}
+                  className="h-11 w-full rounded-full bg-primary px-4 text-sm font-medium text-primary-fg disabled:opacity-70 sm:w-auto"
+                >
+                  {addL.isPending ? "Adding…" : justAdded ? "Added ✓" : "Add to list"}
+                </button>
+                {addListError ? (
+                  <p role="alert" className="mt-1 text-xs text-warn">
+                    {addListError}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
             </div>
             </div>
@@ -199,38 +241,7 @@ function ProductPage() {
               <p className="mt-1 text-xs text-faint">
                 Shown as the last known price at each store between updates — not every day is a new observation.
               </p>
-              <div className="mt-3 h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chart.series} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}`} width={40} />
-                    <Tooltip formatter={(v: number) => xcg(v)} />
-                    {chart.storeNames.map((name, i) => (
-                      <Line
-                        key={name}
-                        type="stepAfter"
-                        dataKey={name}
-                        stroke={chartColors[i % chartColors.length]}
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                        connectNulls
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-                {chart.storeNames.map((name, i) => (
-                  <span key={name} className="inline-flex items-center gap-1.5">
-                    <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ background: chartColors[i % chartColors.length] }}
-                    />
-                    {name}
-                  </span>
-                ))}
-              </div>
+              <PriceHistoryChart series={chart.series} storeNames={chart.storeNames} />
             </div>
           ) : history.data && history.data.length > 0 ? (
             // A chart needs two dates, not two prices: over a third of the catalog was
@@ -253,7 +264,12 @@ function ProductPage() {
                   setPriceError("Enter a price greater than 0");
                   return;
                 }
+                if (Number(amount) > MAX_PRICE_XCG) {
+                  setPriceError(`Price can't exceed ${xcg(MAX_PRICE_XCG)}`);
+                  return;
+                }
                 setPriceError(null);
+                setPriceSubmitError(null);
                 if (storeId) {
                   submitting.current = true;
                   addP.mutate();
@@ -299,8 +315,14 @@ function ProductPage() {
                 {addP.isPending ? "Saving…" : "Submit price"}
               </button>
               {priceError ? <span className="text-sm text-warn">{priceError}</span> : null}
-              {addP.isSuccess ? <span className="text-sm text-good">Submitted for review</span> : null}
-              {addP.isError ? <span className="text-sm text-warn">Could not save</span> : null}
+              {!priceError && addP.isSuccess && !priceSubmitError ? (
+                <span className="text-sm text-good">Submitted for review</span>
+              ) : null}
+              {!priceError && priceSubmitError ? (
+                <span role="alert" className="text-sm text-warn">
+                  {priceSubmitError}
+                </span>
+              ) : null}
             </form>
           ) : (
             <p className="mt-6 text-sm text-muted">
