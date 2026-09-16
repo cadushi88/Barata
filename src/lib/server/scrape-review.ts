@@ -211,3 +211,50 @@ export const bulkApproveHighConfidence = createServerFn({ method: "POST" })
     }
     return { ok: true as const, n: rows.length };
   });
+
+/**
+ * Approves every pending, matched price change across the whole queue (any run,
+ * any source — scraper, receipt, or manual report) in one action. Same atomic
+ * claim-then-batch-insert pattern as bulkApproveHighConfidence, just without the
+ * run/confidence filter — this is the admin dashboard's "Accept all" button,
+ * for clearing a large backlog (e.g. after a bulk import) without a
+ * per-run confidence cutoff or one click per row. Unmatched rows (no
+ * matched_product_id) are never touched — there's nothing to publish yet.
+ */
+export const approveAllPending = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const rows = await sql<{
+      id: number;
+      store_id: string;
+      matched_product_id: number;
+      raw_price: string;
+      source: string;
+      user_id: string | null;
+      observed_at: string | null;
+    }>`
+      update scraped_prices set status = 'approved', reviewed_at = now(), reviewed_by = ${context.userId}
+      where status = 'pending' and matched_product_id is not null
+      returning id, store_id, matched_product_id, raw_price::text as raw_price, source, user_id, observed_at::text as observed_at
+    `;
+    if (rows.length > 0) {
+      const cols = 6;
+      const valuesSql = rows
+        .map((_, i) => `(${Array.from({ length: cols }, (_, j) => `$${i * cols + j + 1}`).join(", ")})`)
+        .join(", ");
+      const params = rows.flatMap((r) => [
+        r.matched_product_id,
+        r.store_id,
+        r.raw_price,
+        r.source,
+        r.user_id,
+        r.observed_at ?? new Date().toISOString(),
+      ]);
+      await sql.query(
+        `insert into prices (product_id, store_id, amount, source, user_id, observed_at) values ${valuesSql}`,
+        params,
+      );
+    }
+    return { ok: true as const, n: rows.length };
+  });
