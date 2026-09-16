@@ -4,7 +4,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { InstallPrompt } from "@/components/install-prompt";
-import { LayoutGrid, Store, ClipboardList, Camera, UserRound } from "lucide-react";
+import { LayoutGrid, Store, ClipboardList, Camera, UserRound, ShieldCheck } from "lucide-react";
 
 const tabs = [
   { to: "/", label: "Catalog", icon: LayoutGrid, match: (p: string) => p === "/" || p.startsWith("/products") },
@@ -94,7 +94,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm lg:hidden"
         aria-label="Primary"
       >
-        <div className="grid grid-cols-5">
+        <div className={`grid ${isAdmin ? "grid-cols-6" : "grid-cols-5"}`}>
           {tabs.map((t) => {
             const on = t.match(pathname);
             const Icon = t.icon;
@@ -109,6 +109,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          {isAdmin ? (
+            <Link
+              to="/admin"
+              className={`flex min-h-14 flex-col items-center justify-center gap-0.5 no-underline ${pathname.startsWith("/admin") ? "text-primary" : "text-faint"}`}
+            >
+              <ShieldCheck size={22} strokeWidth={pathname.startsWith("/admin") ? 2.4 : 1.8} />
+              <span className="text-[11px] font-medium">Admin</span>
+            </Link>
+          ) : null}
           <Link
             to={user ? "/plan" : "/login"}
             className={`flex min-h-14 flex-col items-center justify-center gap-0.5 no-underline ${pathname.startsWith("/login") || pathname.startsWith("/plan") ? "text-primary" : "text-faint"}`}
