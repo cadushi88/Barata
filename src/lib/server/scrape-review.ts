@@ -162,6 +162,26 @@ export const rejectScrapedPrice = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+/**
+ * Rejects every pending row with no matched product in one action — the
+ * counterpart to approveAllPending. A "no match" row can never be approved
+ * as-is (there's nothing to publish it against), so once a scraper run stages
+ * a batch of junk or unrecognized items, clearing them one Reject click at a
+ * time doesn't scale. Never touches matched rows — those still go through
+ * individual review or approveAllPending.
+ */
+export const rejectAllUnmatched = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const rows = await sql<{ id: number }>`
+      update scraped_prices set status = 'rejected', reviewed_at = now(), reviewed_by = ${context.userId}
+      where status = 'pending' and matched_product_id is null
+      returning id
+    `;
+    return { ok: true as const, n: rows.length };
+  });
+
 /** Approves every pending, high-confidence match for a run in one action — the common case (a well-matched price bump) shouldn't need one click per item. */
 export const bulkApproveHighConfidence = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])

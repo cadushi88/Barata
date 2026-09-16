@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { approveAllPending, approveScrapedPrice, listPendingPrices, rejectScrapedPrice } from "@/lib/server/scrape-review";
+import {
+  approveAllPending,
+  approveScrapedPrice,
+  listPendingPrices,
+  rejectAllUnmatched,
+  rejectScrapedPrice,
+} from "@/lib/server/scrape-review";
 import { xcg } from "@/lib/money";
 
 export const Route = createFileRoute("/admin/prices")({ component: PricesPage });
@@ -26,9 +32,19 @@ function PricesPage() {
     },
     onError: () => setAcceptAllError("Couldn't approve everything — try again."),
   });
+  const [rejectAllError, setRejectAllError] = useState<string | null>(null);
+  const rejectAll = useMutation({
+    mutationFn: () => rejectAllUnmatched(),
+    onSuccess: () => {
+      setRejectAllError(null);
+      invalidate();
+    },
+    onError: () => setRejectAllError("Couldn't reject everything — try again."),
+  });
 
   const rows = pending.data ?? [];
   const matchedCount = rows.filter((p) => p.matched_product_id).length;
+  const unmatchedCount = rows.length - matchedCount;
 
   return (
     <>
@@ -39,25 +55,47 @@ function PricesPage() {
             Every price change — scraped, from a receipt, or a shopper's one-off report — waits here until you approve it.
           </p>
         </div>
-        {matchedCount > 0 ? (
-          <button
-            type="button"
-            disabled={acceptAll.isPending}
-            className="h-10 shrink-0 rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg disabled:opacity-60"
-            onClick={() => {
-              if (!window.confirm(`Approve all ${matchedCount} matched, pending prices? This publishes them to the catalog immediately.`)) {
-                return;
-              }
-              acceptAll.mutate();
-            }}
-          >
-            {acceptAll.isPending ? "Approving…" : `Accept all (${matchedCount})`}
-          </button>
-        ) : null}
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {unmatchedCount > 0 ? (
+            <button
+              type="button"
+              disabled={rejectAll.isPending}
+              className="h-10 rounded-lg border border-line px-4 text-sm font-medium text-ink disabled:opacity-60"
+              onClick={() => {
+                if (!window.confirm(`Reject all ${unmatchedCount} unmatched, pending rows? They won't be published — this just clears them from the queue.`)) {
+                  return;
+                }
+                rejectAll.mutate();
+              }}
+            >
+              {rejectAll.isPending ? "Rejecting…" : `Reject all unmatched (${unmatchedCount})`}
+            </button>
+          ) : null}
+          {matchedCount > 0 ? (
+            <button
+              type="button"
+              disabled={acceptAll.isPending}
+              className="h-10 rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg disabled:opacity-60"
+              onClick={() => {
+                if (!window.confirm(`Approve all ${matchedCount} matched, pending prices? This publishes them to the catalog immediately.`)) {
+                  return;
+                }
+                acceptAll.mutate();
+              }}
+            >
+              {acceptAll.isPending ? "Approving…" : `Accept all (${matchedCount})`}
+            </button>
+          ) : null}
+        </div>
       </div>
       {acceptAllError ? (
         <p role="alert" className="mt-2 text-sm text-warn">
           {acceptAllError}
+        </p>
+      ) : null}
+      {rejectAllError ? (
+        <p role="alert" className="mt-2 text-sm text-warn">
+          {rejectAllError}
         </p>
       ) : null}
       <div className="mt-4 space-y-2">
