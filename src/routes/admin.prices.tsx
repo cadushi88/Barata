@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   approveAllPending,
   approveScrapedPrice,
+  confirmClosestGuess,
   listPendingPrices,
   rejectAllUnmatched,
   rejectScrapedPrice,
@@ -23,6 +24,24 @@ function PricesPage() {
   };
   const approve = useMutation({ mutationFn: (id: number) => approveScrapedPrice({ data: { id } }), onSuccess: invalidate });
   const reject = useMutation({ mutationFn: (id: number) => rejectScrapedPrice({ data: { id } }), onSuccess: invalidate });
+  const [guessErrors, setGuessErrors] = useState<Record<number, string>>({});
+  const confirmGuess = useMutation({
+    mutationFn: (vars: { id: number; productId: number; confidence: number | null }) =>
+      confirmClosestGuess({ data: vars }),
+    onSuccess: (_res, vars) => {
+      setGuessErrors((prev) => {
+        const next = { ...prev };
+        delete next[vars.id];
+        return next;
+      });
+      invalidate();
+    },
+    onError: (_err, vars) => setGuessErrors((prev) => ({ ...prev, [vars.id]: "Couldn't link that — try again." })),
+  });
+  // "Save for later" is purely local — the row is already sitting in the
+  // queue untouched, this just hides the Yes/No prompt for this browsing
+  // session so it doesn't nag on every glance at the page.
+  const [dismissedGuesses, setDismissedGuesses] = useState<Set<number>>(new Set());
   const [acceptAllError, setAcceptAllError] = useState<string | null>(null);
   const acceptAll = useMutation({
     mutationFn: () => approveAllPending(),
@@ -121,10 +140,54 @@ function PricesPage() {
                         matched <span className="text-ink">{p.matched_product_name}</span>
                         {p.match_confidence ? ` (${Math.round(Number(p.match_confidence) * 100)}%)` : ""}
                       </>
+                    ) : p.closest_guess_name ? (
+                      <>
+                        no match · closest guess: <span className="text-ink">{p.closest_guess_name}</span>
+                        {p.closest_guess_confidence != null ? ` (${Math.round(p.closest_guess_confidence * 100)}%)` : ""}
+                      </>
                     ) : (
                       "no match"
                     )}
                   </div>
+                  {p.closest_guess_product_id != null && !dismissedGuesses.has(p.id) ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-faint">Is that right?</span>
+                      <button
+                        type="button"
+                        disabled={confirmGuess.isPending}
+                        className="h-6 rounded-full bg-primary px-2.5 text-[11px] font-medium text-primary-fg disabled:opacity-60"
+                        onClick={() =>
+                          confirmGuess.mutate({
+                            id: p.id,
+                            productId: p.closest_guess_product_id!,
+                            confidence: p.closest_guess_confidence,
+                          })
+                        }
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        disabled={reject.isPending}
+                        className="h-6 rounded-full border border-line px-2.5 text-[11px] font-medium text-ink disabled:opacity-60"
+                        onClick={() => reject.mutate(p.id)}
+                      >
+                        No
+                      </button>
+                      <button
+                        type="button"
+                        className="h-6 rounded-full px-2.5 text-[11px] font-medium text-muted"
+                        onClick={() => setDismissedGuesses((prev) => new Set(prev).add(p.id))}
+                      >
+                        Save for later
+                      </button>
+                    </div>
+                  ) : null}
+                  {guessErrors[p.id] ? (
+                    <p role="alert" className="mt-1 text-xs text-warn">
+                      {guessErrors[p.id]}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <span className="tabular-nums font-medium">{xcg(Number(p.raw_price))}</span>
