@@ -15,37 +15,66 @@ function normalize(name: string): string {
 }
 
 export type MatchCandidate = { id: number; name: string };
+export type ScoredMatch = { productId: number; confidence: number };
 
-export function bestMatch(
-  scrapedName: string,
-  candidates: MatchCandidate[],
-): { productId: number; confidence: number } | null {
+/**
+ * Raw similarity between two already-normalized names, with no confidence
+ * floor — the single scoring rule shared by bestMatch (auto-match, applies
+ * its own floor below) and closestCandidate (display-only hint, no floor),
+ * so the two can never silently drift into different ideas of "similar."
+ * Returns null only when there's no signal at all (no shared words).
+ */
+function scoreCandidate(target: string, candidate: string): number | null {
+  if (candidate === target) return 1;
+  if (candidate.includes(target) || target.includes(candidate)) {
+    // Reward the substring covering most of the shorter string — "goya beans"
+    // inside "goya red kidney beans" is a much weaker signal than "goya
+    // bonchi kora" inside "goya bonchi kora 15.5 oz".
+    const shorter = Math.min(candidate.length, target.length);
+    const longer = Math.max(candidate.length, target.length);
+    return 0.55 + 0.35 * (shorter / longer);
+  }
+  const targetWords = new Set(target.split(" ").filter((w) => w.length > 2));
+  const candidateWords = new Set(candidate.split(" ").filter((w) => w.length > 2));
+  const overlap = [...targetWords].filter((w) => candidateWords.has(w)).length;
+  const union = new Set([...targetWords, ...candidateWords]).size;
+  if (union === 0 || overlap === 0) return null;
+  return 0.3 * (overlap / union);
+}
+
+export function bestMatch(scrapedName: string, candidates: MatchCandidate[]): ScoredMatch | null {
   const target = normalize(scrapedName);
   if (!target) return null;
 
-  let best: { productId: number; confidence: number } | null = null;
+  let best: ScoredMatch | null = null;
   for (const c of candidates) {
     const candidate = normalize(c.name);
     if (!candidate) continue;
-    let confidence: number;
-    if (candidate === target) {
-      confidence = 1;
-    } else if (candidate.includes(target) || target.includes(candidate)) {
-      // Reward the substring covering most of the shorter string — "goya beans"
-      // inside "goya red kidney beans" is a much weaker signal than "goya
-      // bonchi kora" inside "goya bonchi kora 15.5 oz".
-      const shorter = Math.min(candidate.length, target.length);
-      const longer = Math.max(candidate.length, target.length);
-      confidence = 0.55 + 0.35 * (shorter / longer);
-    } else {
-      const targetWords = new Set(target.split(" ").filter((w) => w.length > 2));
-      const candidateWords = new Set(candidate.split(" ").filter((w) => w.length > 2));
-      const overlap = [...targetWords].filter((w) => candidateWords.has(w)).length;
-      const union = new Set([...targetWords, ...candidateWords]).size;
-      if (union === 0 || overlap === 0) continue;
-      confidence = 0.3 * (overlap / union);
-      if (confidence < 0.15) continue;
-    }
+    const confidence = scoreCandidate(target, candidate);
+    if (confidence == null || confidence < 0.15) continue;
+    if (!best || confidence > best.confidence) best = { productId: c.id, confidence };
+  }
+  return best;
+}
+
+/**
+ * Same scoring as bestMatch but with no minimum-confidence floor — for
+ * showing a reviewer a "closest guess" hint on a row bestMatch left
+ * unmatched (e.g. "Jacobos Yellow cheddar cheese 5lb" scoring too low
+ * against the catalog's plain "Cheddar 500 g" to auto-match, but still
+ * worth surfacing so a human isn't starting from zero). Never used to
+ * auto-approve or auto-match — display only.
+ */
+export function closestCandidate(scrapedName: string, candidates: MatchCandidate[]): ScoredMatch | null {
+  const target = normalize(scrapedName);
+  if (!target) return null;
+
+  let best: ScoredMatch | null = null;
+  for (const c of candidates) {
+    const candidate = normalize(c.name);
+    if (!candidate) continue;
+    const confidence = scoreCandidate(target, candidate);
+    if (confidence == null) continue;
     if (!best || confidence > best.confidence) best = { productId: c.id, confidence };
   }
   return best;

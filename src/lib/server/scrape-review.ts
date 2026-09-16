@@ -3,6 +3,7 @@ import { getSql } from "@/lib/db";
 import { adminMiddleware } from "@/lib/auth/admin-middleware";
 import { z } from "zod";
 import { runScrapeAndStage } from "./scrapers/run";
+import { closestCandidate, type MatchCandidate } from "./scrapers/match";
 
 export type ScrapeRunRow = {
   id: number;
@@ -77,12 +78,25 @@ export const getScrapeRunDetail = createServerFn({ method: "GET" })
     return { storeResults, prices };
   });
 
+export type PendingPriceRow = ScrapedPriceRow & {
+  user_email: string | null;
+  /**
+   * Best-effort guess for a row bestMatch left unmatched — same scoring, no
+   * confidence floor, computed here (never stored) purely so a reviewer
+   * isn't starting from zero on every "no match" row. Null for matched rows
+   * and for rows with literally no shared words with anything in the catalog.
+   */
+  closest_guess_product_id: number | null;
+  closest_guess_name: string | null;
+  closest_guess_confidence: number | null;
+};
+
 /** Every pending price change regardless of source (scraper run, receipt, manual report) — the admin dashboard's main queue. */
 export const listPendingPrices = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
   .handler(async () => {
     const sql = await getSql();
-    return sql<ScrapedPriceRow & { user_email: string | null }>`
+    const rows = await sql<ScrapedPriceRow & { user_email: string | null }>`
       select
         sp.id, sp.store_id, s.name as store_name, sp.raw_name, sp.raw_unit,
         sp.raw_price::text as raw_price, sp.raw_url, sp.matched_product_id,
@@ -95,6 +109,28 @@ export const listPendingPrices = createServerFn({ method: "GET" })
       where sp.status = 'pending'
       order by sp.created_at desc
     `;
+    if (rows.every((r) => r.matched_product_id != null)) {
+      return rows.map((r) => ({
+        ...r,
+        closest_guess_product_id: null,
+        closest_guess_name: null,
+        closest_guess_confidence: null,
+      }));
+    }
+    const candidates = await sql<MatchCandidate>`select id, name from products`;
+    const candidateNameById = new Map(candidates.map((c) => [c.id, c.name]));
+    return rows.map((r): PendingPriceRow => {
+      if (r.matched_product_id != null) {
+        return { ...r, closest_guess_product_id: null, closest_guess_name: null, closest_guess_confidence: null };
+      }
+      const guess = closestCandidate(r.raw_name, candidates);
+      return {
+        ...r,
+        closest_guess_product_id: guess?.productId ?? null,
+        closest_guess_name: guess ? (candidateNameById.get(guess.productId) ?? null) : null,
+        closest_guess_confidence: guess?.confidence ?? null,
+      };
+    });
   });
 
 export const triggerScrapeRun = createServerFn({ method: "POST" })
@@ -159,6 +195,33 @@ export const rejectScrapedPrice = createServerFn({ method: "POST" })
       returning id
     `;
     if (!row) return { ok: false as const, error: "Already reviewed" };
+    return { ok: true as const };
+  });
+
+/**
+ * A reviewer confirming the "closest guess" hint shown for an unmatched row —
+ * links it to that product so it becomes a normal approvable match. Never
+ * writes to `prices` itself; the row still goes through the usual
+ * approve/approveAllPending path afterward. Guarded the same way as every
+ * other single-row mutation here: only a still-pending, still-unmatched row
+ * can be claimed, so a stale "closest guess" button can't silently relink an
+ * already-handled row.
+ */
+export const confirmClosestGuess = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
+  .validator((input: { id: number; productId: number; confidence: number | null }) =>
+    z
+      .object({ id: z.number().int().positive(), productId: z.number().int().positive(), confidence: z.number().min(0).max(1).nullable() })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    const [row] = await sql<{ id: number }>`
+      update scraped_prices set matched_product_id = ${data.productId}, match_confidence = ${data.confidence}
+      where id = ${data.id} and status = 'pending' and matched_product_id is null
+      returning id
+    `;
+    if (!row) return { ok: false as const, error: "Already reviewed or matched" };
     return { ok: true as const };
   });
 
