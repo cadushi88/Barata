@@ -2,7 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { authEnabled, authClient, googleLoginEnabled, signInWithGoogle } from "@/lib/auth/client";
 import { useState } from "react";
 
-export const Route = createFileRoute("/login")({ component: Login });
+export const Route = createFileRoute("/login")({
+  component: Login,
+  head: () => ({ meta: [{ title: "Sign in — Barata" }] }),
+});
 
 function Login() {
   const [mode, setMode] = useState<"in" | "up">("in");
@@ -82,6 +85,7 @@ function Login() {
                 <input
                   className="h-11 w-full rounded-xl border border-line bg-bg px-3 text-sm"
                   placeholder="Name"
+                  aria-label="Full name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -91,6 +95,7 @@ function Login() {
                 type="email"
                 required
                 placeholder="Email"
+                aria-label="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -100,6 +105,7 @@ function Login() {
                 required
                 minLength={8}
                 placeholder="Password (8+ characters)"
+                aria-label="Password (8 or more characters)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

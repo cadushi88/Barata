@@ -24,15 +24,25 @@ function UsersPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((u) => (
-              <tr key={u.id} className="border-t border-line">
-                <td className="px-4 py-3">{u.name}</td>
-                <td className="px-4 py-3 text-muted">{u.email}</td>
-                <td className="px-4 py-3 tabular-nums">{u.receipt_count}</td>
-                <td className="px-4 py-3 tabular-nums">{u.message_count}</td>
-                <td className="px-4 py-3 text-faint">{new Date(u.created_at).toLocaleDateString()}</td>
-              </tr>
-            ))}
+            {users.isLoading
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="border-t border-line">
+                    {Array.from({ length: 5 }).map((_, j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className="h-4 w-full max-w-28 animate-pulse rounded bg-line/60" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              : rows.map((u) => (
+                  <tr key={u.id} className="border-t border-line">
+                    <td className="px-4 py-3">{u.name}</td>
+                    <td className="px-4 py-3 text-muted">{u.email}</td>
+                    <td className="px-4 py-3 tabular-nums">{u.receipt_count}</td>
+                    <td className="px-4 py-3 tabular-nums">{u.message_count}</td>
+                    <td className="px-4 py-3 text-faint">{new Date(u.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
           </tbody>
         </table>
         {!users.isLoading && rows.length === 0 ? <p className="p-4 text-sm text-faint">No users yet.</p> : null}

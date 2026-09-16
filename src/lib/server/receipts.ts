@@ -149,6 +149,25 @@ export const parseReceipt = createServerFn({ method: "POST" })
       }).parse(input),
   )
   .handler(async ({ data, context }) => {
+    try {
+      return await parseReceiptInner(data, context);
+    } catch (err) {
+      // Anything unexpected here (a DB error, a bad response shape) used to reach
+      // the client as a bare thrown error — which the UI collapsed into a generic
+      // "please try again" with no real information, for the caller or for us.
+      // Log it server-side and hand back a message the client can actually show.
+      console.error("[parseReceipt] unexpected error", err);
+      return {
+        ok: false as const,
+        error: err instanceof Error && err.message ? err.message : "Unexpected error reading that receipt",
+      };
+    }
+  });
+
+async function parseReceiptInner(
+  data: { text: string; storeId?: string; imageDataUrl?: string },
+  context: { userId: string },
+) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return { ok: false as const, error: "AI is not available in this environment" };
@@ -282,7 +301,7 @@ Receipt text:\n${data.text || "(image only)"}`;
       isStale,
       items,
     };
-  });
+}
 
 export const commitReceipt = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

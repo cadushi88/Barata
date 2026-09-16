@@ -20,6 +20,10 @@ export type ProductRow = {
   category: string;
   unit: string;
   needs_review: boolean;
+  /** A real photo of this exact product found by the webshop scraper — a suggested
+   * source image, not an admin upload. Null for most products; see ProductPhoto's
+   * fallback chain for how it's used. */
+  image_url: string | null;
 };
 
 export type PriceRow = {
@@ -63,8 +67,35 @@ export const getCatalogStats = createServerFn({ method: "GET" }).handler(async (
  */
 export const MAX_PRICE_XCG = 9999;
 
+/** Most manual price reports one account may submit per hour — set higher than
+ * similar per-hour limits elsewhere (e.g. receipts.ts's MAX_PARSES_PER_HOUR)
+ * since a single receipt can legitimately need many line items in one sitting. */
+const MAX_PRICES_PER_HOUR = 60;
+
 /** How many products one basket comparison may span (the comparison is O(ids²·stores)). */
 const MAX_BASKET_ITEMS = 500;
+
+/**
+ * Small synonym map for common grocery terms — the catalog's own product names
+ * are a mix of Dutch, Papiamentu and English (survey/receipt sourced), so an
+ * English search for "milk" would otherwise miss a catalog entry named "Melk 1L".
+ * Deliberately tiny and single-word only (see searchProducts) — not an attempt
+ * at real translation, just closing the gaps shoppers are most likely to hit.
+ */
+const SEARCH_SYNONYMS: Record<string, string> = {
+  milk: "melk", melk: "milk",
+  eggs: "eieren", eieren: "eggs", ei: "eggs",
+  bread: "brood", brood: "bread",
+  rice: "rijst", rijst: "rice",
+  chicken: "kip", kip: "chicken",
+  butter: "boter", boter: "butter",
+  cheese: "kaas", kaas: "cheese",
+  sugar: "suiker", suiker: "sugar",
+  water: "awa", awa: "water",
+  bananas: "bananen", bananen: "bananas", banana: "bananen",
+  onion: "cebolla", onions: "cebolla", cebolla: "onion",
+  fish: "piska", piska: "fish",
+};
 
 export const searchProducts = createServerFn({ method: "GET" })
   .validator((input: { q?: string; category?: string }) =>
@@ -82,13 +113,22 @@ export const searchProducts = createServerFn({ method: "GET" })
     // `%` and `_` are LIKE wildcards, so an unescaped query typed by a shopper is
     // matched as a pattern: "_" listed the entire catalog and "100%" matched any
     // name containing "100". Escape them (and the escape char) to search literally.
-    const like = "%" + q.replace(/([\\%_])/g, "\\$1") + "%";
+    const esc = (s: string) => s.replace(/([\\%_])/g, "\\$1");
+    const like = "%" + esc(q) + "%";
+    // Only expand a query that's a single known word (e.g. "milk") to its synonym
+    // ("melk") — a real translation layer is out of scope, this just covers the
+    // handful of everyday terms shoppers are likeliest to type in the "other" language.
+    const synonym = SEARCH_SYNONYMS[q];
+    const hasSynonym = Boolean(synonym);
+    const synonymLike = "%" + esc(synonym ?? "") + "%";
     const products = await sql<ProductRow>`
-      select id, slug, name, brand, category, unit, needs_review
+      select id, slug, name, brand, category, unit, needs_review, image_url
       from products
       where (${q.length === 0}
              or lower(name) like ${like} escape '\\'
-             or lower(coalesce(brand,'')) like ${like} escape '\\')
+             or lower(coalesce(brand,'')) like ${like} escape '\\'
+             or (${hasSynonym} and lower(name) like ${synonymLike} escape '\\')
+             or (${hasSynonym} and lower(coalesce(brand,'')) like ${synonymLike} escape '\\'))
         and (${cat.length === 0} or category = ${cat})
       order by name
     `;
@@ -128,7 +168,7 @@ export const getProduct = createServerFn({ method: "GET" })
     if (!Number.isSafeInteger(data.id)) return { product: null, prices: [] as PriceRow[] };
     const sql = await getSql();
     const products = await sql<ProductRow>`
-      select id, slug, name, brand, category, unit, needs_review from products where id = ${data.id}
+      select id, slug, name, brand, category, unit, needs_review, image_url from products where id = ${data.id}
     `;
     const product = products[0] ?? null;
     const prices = await sql<PriceRow>`
@@ -362,6 +402,13 @@ export const addPrice = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const sql = await getSql();
+    const [{ n: recentPrices }] = await sql<{ n: number }>`
+      select count(*)::int as n from scraped_prices
+      where user_id = ${context.userId} and source = 'manual' and created_at > now() - interval '1 hour'
+    `;
+    if (recentPrices >= MAX_PRICES_PER_HOUR) {
+      return { ok: false as const, error: "Too many price reports in the last hour — try again later" };
+    }
     // Stage for admin review rather than publishing straight to `prices` — see
     // the admin dashboard's Price Approvals section. The reporter already
     // picked the exact catalog product, so this is a confirmed match ready
@@ -381,7 +428,7 @@ export const getList = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const sql = await getSql();
     return sql<ProductRow & { qty: string; list_id: number }>`
-      select sl.id as list_id, sl.qty::text as qty, pr.id, pr.slug, pr.name, pr.brand, pr.category, pr.unit, pr.needs_review
+      select sl.id as list_id, sl.qty::text as qty, pr.id, pr.slug, pr.name, pr.brand, pr.category, pr.unit, pr.needs_review, pr.image_url
       from shopping_list sl
       join products pr on pr.id = sl.product_id
       where sl.user_id = ${context.userId}

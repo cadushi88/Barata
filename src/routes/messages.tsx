@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Shell } from "@/components/shell";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { RedirectToSignIn } from "@/lib/auth/gates";
+import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
 import { myMessages, sendMessage } from "@/lib/server/messages";
 
 export const Route = createFileRoute("/messages")({ component: MessagesPage });
@@ -12,14 +13,28 @@ function MessagesPage() {
   const { user, isPending } = useCurrentUserState();
   const qc = useQueryClient();
   const [body, setBody] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
+  const authErrorMessage = useAuthErrorMessage();
   const messages = useQuery({ queryKey: ["my-messages"], queryFn: () => myMessages(), enabled: Boolean(user) });
+  // `isPending` only flips on the next render, so two clicks landing in the same tick
+  // both pass it and send the message twice. The ref closes that window synchronously.
+  const submitting = useRef(false);
   const send = useMutation({
     mutationFn: () => sendMessage({ data: { body } }),
     onSuccess: (res) => {
       if (res.ok) {
+        setSendError(null);
         setBody("");
         qc.invalidateQueries({ queryKey: ["my-messages"] });
+      } else {
+        setSendError(res.error);
       }
+    },
+    onError: (err) => {
+      setSendError(authErrorMessage(err, "Could not send — try again."));
+    },
+    onSettled: () => {
+      submitting.current = false;
     },
   });
 
@@ -45,7 +60,11 @@ function MessagesPage() {
         className="mt-6 space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
-          if (body.trim()) send.mutate();
+          if (submitting.current) return;
+          if (body.trim()) {
+            submitting.current = true;
+            send.mutate();
+          }
         }}
       >
         <textarea
@@ -61,8 +80,11 @@ function MessagesPage() {
         >
           {send.isPending ? "Sending…" : "Send"}
         </button>
-        {send.data && !send.data.ok ? <p className="text-sm text-warn">{send.data.error}</p> : null}
-        {send.isError ? <p className="text-sm text-warn">Could not send — try again</p> : null}
+        {sendError ? (
+          <p role="alert" className="text-sm text-warn">
+            {sendError}
+          </p>
+        ) : null}
       </form>
 
       <div className="mt-8 space-y-3">

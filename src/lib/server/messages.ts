@@ -23,7 +23,9 @@ export type MyMessageRow = {
 
 export const sendMessage = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { body: string }) => z.object({ body: z.string().trim().min(1) }).parse(input))
+  .validator((input: { body: string }) =>
+    z.object({ body: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH) }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     if (data.body.length > MAX_MESSAGE_LENGTH) {
       return { ok: false as const, error: `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` };
