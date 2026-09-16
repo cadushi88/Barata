@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { approveScrapedPrice, listPendingPrices, rejectScrapedPrice } from "@/lib/server/scrape-review";
+import { approveAllPending, approveScrapedPrice, listPendingPrices, rejectScrapedPrice } from "@/lib/server/scrape-review";
 import { xcg } from "@/lib/money";
 
 export const Route = createFileRoute("/admin/prices")({ component: PricesPage });
@@ -16,15 +17,49 @@ function PricesPage() {
   };
   const approve = useMutation({ mutationFn: (id: number) => approveScrapedPrice({ data: { id } }), onSuccess: invalidate });
   const reject = useMutation({ mutationFn: (id: number) => rejectScrapedPrice({ data: { id } }), onSuccess: invalidate });
+  const [acceptAllError, setAcceptAllError] = useState<string | null>(null);
+  const acceptAll = useMutation({
+    mutationFn: () => approveAllPending(),
+    onSuccess: () => {
+      setAcceptAllError(null);
+      invalidate();
+    },
+    onError: () => setAcceptAllError("Couldn't approve everything — try again."),
+  });
 
   const rows = pending.data ?? [];
+  const matchedCount = rows.filter((p) => p.matched_product_id).length;
 
   return (
     <>
-      <h1 className="font-display text-2xl font-semibold md:text-3xl">Price approvals</h1>
-      <p className="mt-1 text-sm text-muted">
-        Every price change — scraped, from a receipt, or a shopper's one-off report — waits here until you approve it.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-semibold md:text-3xl">Price approvals</h1>
+          <p className="mt-1 text-sm text-muted">
+            Every price change — scraped, from a receipt, or a shopper's one-off report — waits here until you approve it.
+          </p>
+        </div>
+        {matchedCount > 0 ? (
+          <button
+            type="button"
+            disabled={acceptAll.isPending}
+            className="h-10 shrink-0 rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg disabled:opacity-60"
+            onClick={() => {
+              if (!window.confirm(`Approve all ${matchedCount} matched, pending prices? This publishes them to the catalog immediately.`)) {
+                return;
+              }
+              acceptAll.mutate();
+            }}
+          >
+            {acceptAll.isPending ? "Approving…" : `Accept all (${matchedCount})`}
+          </button>
+        ) : null}
+      </div>
+      {acceptAllError ? (
+        <p role="alert" className="mt-2 text-sm text-warn">
+          {acceptAllError}
+        </p>
+      ) : null}
       <div className="mt-4 space-y-2">
         {pending.isLoading
           ? Array.from({ length: 4 }).map((_, i) => (
