@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Shell } from "@/components/shell";
 import { listCategories, getCatalogStats, searchProducts, addToList } from "@/lib/server/catalog";
-import { xcg, num } from "@/lib/money";
+import { xcg, num, splitXcg } from "@/lib/money";
 import { ProductPhoto } from "@/components/product-photo";
 import { getProductPhotosMeta } from "@/lib/server/product-photos";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -13,6 +13,18 @@ export const Route = createFileRoute("/")({
   component: Home,
   head: () => ({ meta: [{ title: "Barata — Compare grocery prices" }] }),
 });
+
+/** Shelf-tag price display: a big whole-number numeral with small superscript cents. */
+function BigPrice({ amount }: { amount: number }) {
+  const { whole, cents } = splitXcg(amount);
+  return (
+    <span className="inline-flex items-start font-display leading-none">
+      <span className="mt-1 mr-1 self-start text-xs font-sans font-bold uppercase tracking-wide text-muted">XCG</span>
+      <span className="text-3xl">{whole}</span>
+      <span className="mt-0.5 text-base">{cents}</span>
+    </span>
+  );
+}
 
 function Home() {
   const [q, setQ] = useState("");
@@ -52,19 +64,50 @@ function Home() {
     },
   });
 
+  // The biggest real spread among whatever's currently loaded — featured as
+  // the hero's shelf-tag callout instead of a made-up "deal of the day".
+  const bestFind = (products.data ?? [])
+    .filter((p) => p.min_price != null && p.max_price != null)
+    .map((p) => ({ ...p, save: num(p.max_price) - num(p.min_price) }))
+    .sort((a, b) => b.save - a.save)[0];
+
   return (
     <Shell>
-      <section className="mb-5 max-w-2xl md:mb-8">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
-          Curaçao{stats.data ? ` · ${stats.data.storeCount} stores · ${stats.data.productCount} staples` : ""}
-        </p>
-        <h1 className="mt-2 font-display text-[1.85rem] font-semibold leading-[1.15] tracking-tight sm:text-4xl md:text-5xl">
-          Who is cheapest today?
-        </h1>
-        <p className="mt-3 hidden text-base text-muted sm:block">
-          Compare grocery prices across Mangusa, Centrum, Van den Tweel, Carrefour, Goisco and more.
-          Add a receipt and the catalog updates for everyone.
-        </p>
+      <div
+        className="-mx-4 mb-5 px-4 py-2 text-center text-xs font-bold uppercase tracking-wide text-primary-fg md:mb-6"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(-45deg, var(--color-primary) 0 18px, color-mix(in srgb, var(--color-primary) 80%, black) 18px 36px)",
+        }}
+      >
+        This week — biggest spreads across every store on the island
+      </div>
+
+      <section className="mb-5 grid gap-5 md:mb-8 md:grid-cols-[1.3fr_1fr] md:items-center">
+        <div className="max-w-2xl">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
+            Curaçao{stats.data ? ` · ${stats.data.storeCount} stores · ${stats.data.productCount} staples` : ""}
+          </p>
+          <h1 className="mt-2 font-display text-[1.85rem] font-semibold leading-[1.15] tracking-tight sm:text-4xl md:text-5xl">
+            Who is cheapest today?
+          </h1>
+          <p className="mt-3 hidden text-base text-muted sm:block">
+            Compare grocery prices across Mangusa, Centrum, Van den Tweel, Carrefour, Goisco and more.
+            Add a receipt and the catalog updates for everyone.
+          </p>
+        </div>
+        {bestFind && bestFind.save > 0.2 ? (
+          <div className="rounded-md bg-highlight p-5 text-highlight-fg">
+            <p className="text-xs font-bold uppercase tracking-wide">This week's find</p>
+            <p className="mt-1 truncate font-medium">{bestFind.name}</p>
+            <div className="mt-1">
+              <BigPrice amount={num(bestFind.min_price)} />
+            </div>
+            <p className="mt-1 text-sm font-medium">
+              {bestFind.cheapest_store} — save {xcg(bestFind.save)}
+            </p>
+          </div>
+        ) : null}
       </section>
 
       <div className="sticky top-14 z-10 -mx-4 mb-3 bg-bg/95 px-4 py-2 backdrop-blur-sm md:static md:mx-0 md:mb-4 md:bg-transparent md:px-0 md:py-0">
@@ -170,7 +213,7 @@ function Home() {
                   <div className="shrink-0 text-right">
                     {hasPrice ? (
                       <>
-                        <div className="font-medium tabular-nums">{xcg(min)}</div>
+                        <BigPrice amount={min} />
                         <div className="max-w-28 truncate text-xs text-muted">{p.cheapest_store}</div>
                       </>
                     ) : (
@@ -179,8 +222,8 @@ function Home() {
                   </div>
                 </div>
                 {save > 0.2 ? (
-                  <p className="mt-2 text-xs text-good">
-                    Spread {xcg(save)} vs the most expensive store
+                  <p className="mt-2 text-xs font-bold uppercase tracking-wide text-good">
+                    Save {xcg(save)} vs the most expensive store
                   </p>
                 ) : null}
                 <div className="mt-3 flex gap-2">

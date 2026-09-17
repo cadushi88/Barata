@@ -20,11 +20,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-bg text-ink">
-      <header className="sticky top-0 z-20 border-b border-line bg-bg/95 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
+      <header className="sticky top-0 z-20 bg-navy pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 lg:h-16">
           <Link to="/" className="flex min-w-0 items-baseline gap-2 no-underline">
-            <span className="font-display text-xl font-semibold tracking-tight text-ink lg:text-2xl">Barata</span>
-            <span className="hidden text-xs text-muted lg:inline">Curaçao prices</span>
+            <span className="font-display text-xl font-semibold tracking-tight text-navy-fg lg:text-2xl">Barata</span>
+            <span className="hidden text-xs text-navy-fg/60 lg:inline">Curaçao prices</span>
           </Link>
 
           <nav className="ml-6 hidden items-center gap-1 text-sm lg:flex">
@@ -34,7 +34,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={t.to}
                   to={t.to}
-                  className={`rounded-full px-3 py-2 no-underline ${on ? "bg-ink text-bg" : "text-muted hover:bg-surface hover:text-ink"}`}
+                  className={`rounded-full px-3 py-2 no-underline ${on ? "bg-primary text-primary-fg" : "text-navy-fg/70 hover:bg-white/10 hover:text-navy-fg"}`}
                 >
                   {t.label}
                 </Link>
@@ -42,14 +42,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
             })}
             <Link
               to="/plan"
-              className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/plan") ? "bg-ink text-bg" : "text-muted hover:bg-surface hover:text-ink"}`}
+              className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/plan") ? "bg-primary text-primary-fg" : "text-navy-fg/70 hover:bg-white/10 hover:text-navy-fg"}`}
             >
               Business
             </Link>
             {user ? (
               <Link
                 to="/messages"
-                className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/messages") ? "bg-ink text-bg" : "text-muted hover:bg-surface hover:text-ink"}`}
+                className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/messages") ? "bg-primary text-primary-fg" : "text-navy-fg/70 hover:bg-white/10 hover:text-navy-fg"}`}
               >
                 Messages
               </Link>
@@ -57,7 +57,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             {isAdmin ? (
               <Link
                 to="/admin"
-                className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/admin") ? "bg-ink text-bg" : "text-muted hover:bg-surface hover:text-ink"}`}
+                className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/admin") ? "bg-primary text-primary-fg" : "text-navy-fg/70 hover:bg-white/10 hover:text-navy-fg"}`}
               >
                 Admin
               </Link>
@@ -67,7 +67,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
             {isPending ? (
-              <div className="h-9 w-9 animate-pulse rounded-full bg-line" />
+              <div className="h-9 w-9 animate-pulse rounded-full bg-white/10" />
             ) : user ? (
               <SignedIn>
                 <UserButton />
@@ -85,6 +85,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      <div
+        className="h-1.5 w-full"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(-45deg, var(--color-primary) 0 14px, color-mix(in srgb, var(--color-primary) 75%, black) 14px 28px)",
+        }}
+        aria-hidden="true"
+      />
 
       <InstallPrompt />
 
