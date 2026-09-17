@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   approveAllPending,
@@ -8,12 +8,82 @@ import {
   listPendingPrices,
   rejectAllUnmatched,
   rejectScrapedPrice,
+  searchProductsForLinking,
 } from "@/lib/server/scrape-review";
 import { xcg } from "@/lib/money";
 
 export const Route = createFileRoute("/admin/prices")({ component: PricesPage });
 
 const SOURCE_LABEL: Record<string, string> = { scrape: "Scraper", receipt: "Receipt", manual: "Manual report" };
+
+function useDebounced<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+/** The "link to a product…" search box for a row an admin has verified by hand. */
+function LinkToProductBox({
+  onPick,
+  onCancel,
+  disabled,
+}: {
+  onPick: (productId: number) => void;
+  onCancel: () => void;
+  disabled: boolean;
+}) {
+  const [q, setQ] = useState("");
+  const debouncedQ = useDebounced(q, 250);
+  const results = useQuery({
+    queryKey: ["admin-product-search", debouncedQ],
+    queryFn: () => searchProductsForLinking({ data: { q: debouncedQ } }),
+    enabled: debouncedQ.trim().length >= 2,
+  });
+
+  return (
+    <div className="mt-2 rounded-md border border-line bg-bg p-2">
+      <div className="flex items-center gap-2">
+        <input
+          autoFocus
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search the catalog by name or brand…"
+          className="h-8 flex-1 rounded-md border border-line bg-surface px-2 text-xs outline-none"
+        />
+        <button type="button" className="h-8 shrink-0 px-2 text-xs text-muted" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+      {debouncedQ.trim().length >= 2 ? (
+        <div className="mt-1.5 max-h-48 space-y-1 overflow-y-auto">
+          {results.isLoading ? (
+            <p className="px-1 py-1 text-xs text-faint">Searching…</p>
+          ) : (results.data ?? []).length === 0 ? (
+            <p className="px-1 py-1 text-xs text-faint">No products match “{debouncedQ.trim()}”.</p>
+          ) : (
+            (results.data ?? []).map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                disabled={disabled}
+                className="block w-full rounded px-1.5 py-1 text-left text-xs hover:bg-surface disabled:opacity-60"
+                onClick={() => onPick(r.id)}
+              >
+                <span className="text-ink">{r.name}</span>
+                <span className="text-faint">
+                  {r.brand ? ` · ${r.brand}` : ""} · {r.unit}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function PricesPage() {
   const qc = useQueryClient();
@@ -34,6 +104,7 @@ function PricesPage() {
         delete next[vars.id];
         return next;
       });
+      setLinkingRowId((cur) => (cur === vars.id ? null : cur));
       invalidate();
     },
     onError: (_err, vars) => setGuessErrors((prev) => ({ ...prev, [vars.id]: "Couldn't link that — try again." })),
@@ -42,6 +113,9 @@ function PricesPage() {
   // queue untouched, this just hides the Yes/No prompt for this browsing
   // session so it doesn't nag on every glance at the page.
   const [dismissedGuesses, setDismissedGuesses] = useState<Set<number>>(new Set());
+  // Which row currently has its "link to a product…" search box open — at
+  // most one at a time, since it's a rare, deliberate action per row.
+  const [linkingRowId, setLinkingRowId] = useState<number | null>(null);
   const [acceptAllError, setAcceptAllError] = useState<string | null>(null);
   const acceptAll = useMutation({
     mutationFn: () => approveAllPending(),
@@ -182,6 +256,25 @@ function PricesPage() {
                         Save for later
                       </button>
                     </div>
+                  ) : null}
+                  {p.matched_product_id == null ? (
+                    linkingRowId === p.id ? (
+                      <LinkToProductBox
+                        disabled={confirmGuess.isPending}
+                        onCancel={() => setLinkingRowId(null)}
+                        onPick={(productId) => confirmGuess.mutate({ id: p.id, productId, confidence: null })}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="mt-1 block text-xs font-medium text-primary underline-offset-2 hover:underline"
+                        onClick={() => setLinkingRowId(p.id)}
+                      >
+                        {/* For when a reviewer has personally checked the webshop and knows the real
+                            match, rather than waiting on the algorithm's guess (or when it found none). */}
+                        Link to a product…
+                      </button>
+                    )
                   ) : null}
                   {guessErrors[p.id] ? (
                     <p role="alert" className="mt-1 text-xs text-warn">

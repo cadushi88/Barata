@@ -239,6 +239,34 @@ export const confirmClosestGuess = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+export type CatalogSearchResult = { id: number; name: string; brand: string | null; unit: string };
+
+/**
+ * Backs the admin "link to a product…" search box: a reviewer who has
+ * personally verified an unmatched row against the real product (e.g.
+ * checked the webshop themselves) searches the catalog by name/brand and
+ * picks the match by hand, instead of waiting on bestMatch/closestCandidate
+ * to find it. The pick still goes through confirmClosestGuess with
+ * confidence: null — same "link this row to that product" write, just
+ * sourced from a human search instead of the fuzzy matcher.
+ */
+export const searchProductsForLinking = createServerFn({ method: "GET" })
+  .middleware([adminMiddleware])
+  .validator((input: { q: string }) => z.object({ q: z.string().max(200) }).parse(input))
+  .handler(async ({ data }) => {
+    const q = data.q.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const sql = await getSql();
+    const esc = (s: string) => s.replace(/([\\%_])/g, "\\$1");
+    const like = "%" + esc(q) + "%";
+    return sql<CatalogSearchResult>`
+      select id, name, brand, unit from products
+      where lower(name) like ${like} escape '\\' or lower(coalesce(brand, '')) like ${like} escape '\\'
+      order by name
+      limit 12
+    `;
+  });
+
 /**
  * Rejects every pending row with no matched product in one action — the
  * counterpart to approveAllPending. A "no match" row can never be approved
