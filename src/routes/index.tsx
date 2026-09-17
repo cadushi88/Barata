@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Shell } from "@/components/shell";
 import { listCategories, getCatalogStats, searchProducts, addToList } from "@/lib/server/catalog";
 import { xcg, num, splitXcg } from "@/lib/money";
@@ -66,10 +66,16 @@ function Home() {
 
   // The biggest real spread among whatever's currently loaded — featured as
   // the hero's shelf-tag callout instead of a made-up "deal of the day".
-  const bestFind = (products.data ?? [])
-    .filter((p) => p.min_price != null && p.max_price != null)
-    .map((p) => ({ ...p, save: num(p.max_price) - num(p.min_price) }))
-    .sort((a, b) => b.save - a.save)[0];
+  // Memoized so typing in the search box or an add-to-list mutation doesn't
+  // re-sort the whole result set on every render.
+  const bestFind = useMemo(
+    () =>
+      (products.data ?? [])
+        .filter((p) => p.min_price != null && p.max_price != null)
+        .map((p) => ({ ...p, save: num(p.max_price) - num(p.min_price) }))
+        .sort((a, b) => b.save - a.save)[0],
+    [products.data],
+  );
 
   return (
     <Shell>

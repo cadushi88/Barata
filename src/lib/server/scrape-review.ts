@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getSql } from "@/lib/db";
+import { getSql, type Sql } from "@/lib/db";
 import { adminMiddleware } from "@/lib/auth/admin-middleware";
 import { z } from "zod";
 import { runScrapeAndStage } from "./scrapers/run";
@@ -109,13 +109,14 @@ export const listPendingPrices = createServerFn({ method: "GET" })
       where sp.status = 'pending'
       order by sp.created_at desc
     `;
+    const noGuess = (r: ScrapedPriceRow & { user_email: string | null }): PendingPriceRow => ({
+      ...r,
+      closest_guess_product_id: null,
+      closest_guess_name: null,
+      closest_guess_confidence: null,
+    });
     if (rows.every((r) => r.matched_product_id != null)) {
-      return rows.map((r) => ({
-        ...r,
-        closest_guess_product_id: null,
-        closest_guess_name: null,
-        closest_guess_confidence: null,
-      }));
+      return rows.map(noGuess);
     }
     const candidates = await sql<MatchCandidate>`select id, name from products`;
     const candidateNameById = new Map(candidates.map((c) => [c.id, c.name]));
@@ -132,11 +133,8 @@ export const listPendingPrices = createServerFn({ method: "GET" })
     const MAX_GUESS_ROWS = 500;
     let guessesComputed = 0;
     return rows.map((r): PendingPriceRow => {
-      if (r.matched_product_id != null) {
-        return { ...r, closest_guess_product_id: null, closest_guess_name: null, closest_guess_confidence: null };
-      }
-      if (guessesComputed >= MAX_GUESS_ROWS) {
-        return { ...r, closest_guess_product_id: null, closest_guess_name: null, closest_guess_confidence: null };
+      if (r.matched_product_id != null || guessesComputed >= MAX_GUESS_ROWS) {
+        return noGuess(r);
       }
       guessesComputed++;
       const guess = closestCandidate(r.raw_name, matchIndex);
@@ -261,6 +259,37 @@ export const rejectAllUnmatched = createServerFn({ method: "POST" })
     return { ok: true as const, n: rows.length };
   });
 
+type ClaimedPriceRow = {
+  id: number;
+  store_id: string;
+  matched_product_id: number;
+  raw_price: string;
+  source: string;
+  user_id: string | null;
+  observed_at: string | null;
+};
+
+/** Publishes a batch of already-claimed rows to `prices` in one multi-row INSERT instead of one query per row. */
+async function insertApprovedPrices(sql: Sql, rows: ClaimedPriceRow[]): Promise<void> {
+  if (rows.length === 0) return;
+  const cols = 6;
+  const valuesSql = rows
+    .map((_, i) => `(${Array.from({ length: cols }, (_, j) => `$${i * cols + j + 1}`).join(", ")})`)
+    .join(", ");
+  const params = rows.flatMap((r) => [
+    r.matched_product_id,
+    r.store_id,
+    r.raw_price,
+    r.source,
+    r.user_id,
+    r.observed_at ?? new Date().toISOString(),
+  ]);
+  await sql.query(
+    `insert into prices (product_id, store_id, amount, source, user_id, observed_at) values ${valuesSql}`,
+    params,
+  );
+}
+
 /** Approves every pending, high-confidence match for a run in one action — the common case (a well-matched price bump) shouldn't need one click per item. */
 export const bulkApproveHighConfidence = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
@@ -275,39 +304,13 @@ export const bulkApproveHighConfidence = createServerFn({ method: "POST" })
     // concurrent individual approveScrapedPrice/rejectScrapedPrice call — same guard
     // as there, just applied set-wise) and RETURNING hands back exactly the rows this
     // call actually claimed, replacing the former select-then-loop-of-queries.
-    const rows = await sql<{
-      id: number;
-      store_id: string;
-      matched_product_id: number;
-      raw_price: string;
-      source: string;
-      user_id: string | null;
-      observed_at: string | null;
-    }>`
+    const rows = await sql<ClaimedPriceRow>`
       update scraped_prices set status = 'approved', reviewed_at = now(), reviewed_by = ${context.userId}
       where run_id = ${data.runId} and status = 'pending'
         and matched_product_id is not null and match_confidence >= ${threshold}
       returning id, store_id, matched_product_id, raw_price::text as raw_price, source, user_id, observed_at::text as observed_at
     `;
-    if (rows.length > 0) {
-      // Single multi-row INSERT instead of one query per row.
-      const cols = 6;
-      const valuesSql = rows
-        .map((_, i) => `(${Array.from({ length: cols }, (_, j) => `$${i * cols + j + 1}`).join(", ")})`)
-        .join(", ");
-      const params = rows.flatMap((r) => [
-        r.matched_product_id,
-        r.store_id,
-        r.raw_price,
-        r.source,
-        r.user_id,
-        r.observed_at ?? new Date().toISOString(),
-      ]);
-      await sql.query(
-        `insert into prices (product_id, store_id, amount, source, user_id, observed_at) values ${valuesSql}`,
-        params,
-      );
-    }
+    await insertApprovedPrices(sql, rows);
     return { ok: true as const, n: rows.length };
   });
 
@@ -324,36 +327,11 @@ export const approveAllPending = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
-    const rows = await sql<{
-      id: number;
-      store_id: string;
-      matched_product_id: number;
-      raw_price: string;
-      source: string;
-      user_id: string | null;
-      observed_at: string | null;
-    }>`
+    const rows = await sql<ClaimedPriceRow>`
       update scraped_prices set status = 'approved', reviewed_at = now(), reviewed_by = ${context.userId}
       where status = 'pending' and matched_product_id is not null
       returning id, store_id, matched_product_id, raw_price::text as raw_price, source, user_id, observed_at::text as observed_at
     `;
-    if (rows.length > 0) {
-      const cols = 6;
-      const valuesSql = rows
-        .map((_, i) => `(${Array.from({ length: cols }, (_, j) => `$${i * cols + j + 1}`).join(", ")})`)
-        .join(", ");
-      const params = rows.flatMap((r) => [
-        r.matched_product_id,
-        r.store_id,
-        r.raw_price,
-        r.source,
-        r.user_id,
-        r.observed_at ?? new Date().toISOString(),
-      ]);
-      await sql.query(
-        `insert into prices (product_id, store_id, amount, source, user_id, observed_at) values ${valuesSql}`,
-        params,
-      );
-    }
+    await insertApprovedPrices(sql, rows);
     return { ok: true as const, n: rows.length };
   });
