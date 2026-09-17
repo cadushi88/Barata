@@ -7,7 +7,10 @@ import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
 import { myMessages, sendMessage } from "@/lib/server/messages";
 
-export const Route = createFileRoute("/messages")({ component: MessagesPage });
+export const Route = createFileRoute("/messages")({
+  component: MessagesPage,
+  head: () => ({ meta: [{ title: "Messages — Barata" }] }),
+});
 
 function MessagesPage() {
   const { user, isPending } = useCurrentUserState();

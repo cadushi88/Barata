@@ -5,7 +5,10 @@ import { getStore } from "@/lib/server/catalog";
 import { ProductPhoto } from "@/components/product-photo";
 import { xcg } from "@/lib/money";
 
-export const Route = createFileRoute("/stores/$id")({ component: StorePage });
+export const Route = createFileRoute("/stores/$id")({
+  component: StorePage,
+  head: () => ({ meta: [{ title: "Store — Barata" }] }),
+});
 
 function StorePage() {
   const { id } = Route.useParams();

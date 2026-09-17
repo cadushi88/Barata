@@ -54,6 +54,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 Messages
               </Link>
             ) : null}
+            {user ? (
+              <Link
+                to="/account"
+                className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/account") ? "bg-primary text-primary-fg" : "text-navy-fg/70 hover:bg-white/10 hover:text-navy-fg"}`}
+              >
+                Account
+              </Link>
+            ) : null}
             {isAdmin ? (
               <Link
                 to="/admin"
@@ -96,7 +104,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       <InstallPrompt />
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-5 pb-28 lg:py-8 lg:pb-10">{children}</main>
+      <main className="mx-auto w-full max-w-6xl px-4 py-5 pb-28 lg:py-8 lg:pb-10">
+        {children}
+        <footer className="mt-12 flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-4 text-xs text-faint">
+          <span>© {new Date().getFullYear()} Barata</span>
+          <Link to="/privacy" className="text-faint no-underline hover:text-muted hover:underline">
+            Privacy
+          </Link>
+          <Link to="/terms" className="text-faint no-underline hover:text-muted hover:underline">
+            Terms
+          </Link>
+        </footer>
+      </main>
 
       <nav
         className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm lg:hidden"
@@ -127,10 +146,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </Link>
           ) : null}
           <Link
-            to={user ? "/plan" : "/login"}
-            className={`flex min-h-14 flex-col items-center justify-center gap-0.5 no-underline ${pathname.startsWith("/login") || pathname.startsWith("/plan") ? "text-primary" : "text-faint"}`}
+            to={user ? "/account" : "/login"}
+            className={`flex min-h-14 flex-col items-center justify-center gap-0.5 no-underline ${pathname.startsWith("/login") || pathname.startsWith("/account") ? "text-primary" : "text-faint"}`}
           >
-            <UserRound size={22} strokeWidth={pathname.startsWith("/login") || pathname.startsWith("/plan") ? 2.4 : 1.8} />
+            <UserRound size={22} strokeWidth={pathname.startsWith("/login") || pathname.startsWith("/account") ? 2.4 : 1.8} />
             <span className="text-[11px] font-medium">{user ? "You" : "Sign in"}</span>
           </Link>
         </div>

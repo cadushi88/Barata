@@ -121,6 +121,12 @@ export const searchProducts = createServerFn({ method: "GET" })
     const synonym = SEARCH_SYNONYMS[q];
     const hasSynonym = Boolean(synonym);
     const synonymLike = "%" + esc(synonym ?? "") + "%";
+    // The catalog is ~10k products — an unbounded result here would mean a huge
+    // response payload, and every downstream per-product-id batch call (photo
+    // metadata, price lookups) blowing past request-size limits for the
+    // default "browse everything" query. Cap it; a search or category filter
+    // is how a shopper narrows it down from there.
+    const SEARCH_RESULT_LIMIT = 60;
     const products = await sql<ProductRow>`
       select id, slug, name, brand, category, unit, needs_review, image_url
       from products
@@ -131,12 +137,18 @@ export const searchProducts = createServerFn({ method: "GET" })
              or (${hasSynonym} and lower(coalesce(brand,'')) like ${synonymLike} escape '\\'))
         and (${cat.length === 0} or category = ${cat})
       order by name
+      limit ${SEARCH_RESULT_LIMIT}
     `;
-    const latest = await sql<{ product_id: number; store_name: string; amount: string }>`
+    const productIds = products.map((p) => p.id);
+    const latest =
+      productIds.length === 0
+        ? []
+        : await sql<{ product_id: number; store_name: string; amount: string }>`
       select distinct on (p.product_id, p.store_id)
         p.product_id, s.name as store_name, p.amount::text as amount
       from prices p
       join stores s on s.id = p.store_id
+      where p.product_id = any(${productIds})
       -- p.id desc breaks observed_at ties deterministically (newest insert wins):
       -- commitReceipt stamps every line of a receipt with the same purchase-date
       -- timestamp, so a corrected re-upload would otherwise be a coin flip.

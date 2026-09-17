@@ -57,17 +57,22 @@ function scoreCandidate(target: string, candidate: string): number | null {
   return 0.3 * (overlap / union);
 }
 
-export function bestMatch(scrapedName: string, index: MatchIndex): ScoredMatch | null {
+/** Shared search loop behind bestMatch/closestCandidate — they differ only in the confidence floor. */
+function findBest(scrapedName: string, index: MatchIndex, minConfidence: number): ScoredMatch | null {
   const target = normalize(scrapedName);
   if (!target) return null;
 
   let best: ScoredMatch | null = null;
   for (const c of index) {
     const confidence = scoreCandidate(target, c.normalized);
-    if (confidence == null || confidence < 0.15) continue;
+    if (confidence == null || confidence < minConfidence) continue;
     if (!best || confidence > best.confidence) best = { productId: c.id, confidence };
   }
   return best;
+}
+
+export function bestMatch(scrapedName: string, index: MatchIndex): ScoredMatch | null {
+  return findBest(scrapedName, index, 0.15);
 }
 
 /**
@@ -79,14 +84,5 @@ export function bestMatch(scrapedName: string, index: MatchIndex): ScoredMatch |
  * auto-approve or auto-match — display only.
  */
 export function closestCandidate(scrapedName: string, index: MatchIndex): ScoredMatch | null {
-  const target = normalize(scrapedName);
-  if (!target) return null;
-
-  let best: ScoredMatch | null = null;
-  for (const c of index) {
-    const confidence = scoreCandidate(target, c.normalized);
-    if (confidence == null) continue;
-    if (!best || confidence > best.confidence) best = { productId: c.id, confidence };
-  }
-  return best;
+  return findBest(scrapedName, index, 0);
 }

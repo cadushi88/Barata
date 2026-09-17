@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Shell } from "@/components/shell";
-import { listStores, searchProducts } from "@/lib/server/catalog";
+import { getCatalogStats, listStores } from "@/lib/server/catalog";
 import { commitReceipt, parseReceipt } from "@/lib/server/receipts";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { RedirectToSignIn } from "@/lib/auth/gates";
@@ -9,7 +9,10 @@ import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
 import { useRef, useState } from "react";
 import { xcg } from "@/lib/money";
 
-export const Route = createFileRoute("/contribute")({ component: ContributePage });
+export const Route = createFileRoute("/contribute")({
+  component: ContributePage,
+  head: () => ({ meta: [{ title: "Update prices — Barata" }] }),
+});
 
 const RECEIPT_MAX_DIMENSION = 1600;
 const RECEIPT_JPEG_QUALITY = 0.85;
@@ -55,7 +58,7 @@ function compressReceiptImage(file: File): Promise<string> {
 function ContributePage() {
   const { user, isPending } = useCurrentUserState();
   const stores = useQuery({ queryKey: ["stores"], queryFn: () => listStores() });
-  const catalog = useQuery({ queryKey: ["products", "", ""], queryFn: () => searchProducts({ data: { q: "", category: "" } }) });
+  const catalogStats = useQuery({ queryKey: ["catalog-stats"], queryFn: () => getCatalogStats() });
   const [text, setText] = useState(
     "Mangusa Hypermarket\nMelk 1L          3.15\nRijst 1kg        5.49\nKipfilet 1kg    11.20\nBananen 1kg      4.80\nEieren 12        6.25\nTOTAAL          30.89",
   );
@@ -135,6 +138,15 @@ function ContributePage() {
       <h1 className="font-display text-2xl font-semibold md:text-3xl">Update prices</h1>
       <p className="mt-2 max-w-xl text-sm text-muted md:text-base">
         Paste a receipt or type the lines. Claude reads the items, sorts them by category and price, and matches them to the catalog.
+      </p>
+      <p className="mt-3 max-w-xl rounded-lg border border-line bg-surface px-3 py-2 text-xs text-muted">
+        The receipt text and photo you submit here are sent to <strong className="text-ink">Anthropic</strong> (maker
+        of Claude) only to read the line items off the receipt — we don't store the photo itself. Nothing is added
+        to the public catalog automatically: an admin reviews every submission first. See our{" "}
+        <Link to="/privacy" className="text-ink underline underline-offset-2">
+          Privacy policy
+        </Link>{" "}
+        for details.
       </p>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -285,7 +297,7 @@ function ContributePage() {
       </div>
 
       <p className="mt-8 text-xs text-faint">
-        Catalog size: {(catalog.data ?? []).length} products. Unmatched lines stay private until a human maps them.
+        Catalog size: {catalogStats.data?.productCount ?? "—"} products. Unmatched lines stay private until a human maps them.
       </p>
     </Shell>
   );
