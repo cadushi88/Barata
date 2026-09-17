@@ -18,6 +18,21 @@ export type MatchCandidate = { id: number; name: string };
 export type ScoredMatch = { productId: number; confidence: number };
 
 /**
+ * Pre-normalized candidate list — build once per batch of matching (once per
+ * scrape run, once per admin/prices page load), not once per item scored.
+ * Every candidate's name goes through Unicode NFD normalization, which is
+ * the expensive part of normalize() — re-running that per (item, candidate)
+ * pair instead of per candidate turned a 453-candidate catalog into a real
+ * bottleneck once closestCandidate started running per unmatched row on
+ * every page load instead of per scraped item on a once-daily cron.
+ */
+export type MatchIndex = { id: number; normalized: string }[];
+
+export function buildMatchIndex(candidates: MatchCandidate[]): MatchIndex {
+  return candidates.map((c) => ({ id: c.id, normalized: normalize(c.name) })).filter((c) => c.normalized.length > 0);
+}
+
+/**
  * Raw similarity between two already-normalized names, with no confidence
  * floor — the single scoring rule shared by bestMatch (auto-match, applies
  * its own floor below) and closestCandidate (display-only hint, no floor),
@@ -42,15 +57,13 @@ function scoreCandidate(target: string, candidate: string): number | null {
   return 0.3 * (overlap / union);
 }
 
-export function bestMatch(scrapedName: string, candidates: MatchCandidate[]): ScoredMatch | null {
+export function bestMatch(scrapedName: string, index: MatchIndex): ScoredMatch | null {
   const target = normalize(scrapedName);
   if (!target) return null;
 
   let best: ScoredMatch | null = null;
-  for (const c of candidates) {
-    const candidate = normalize(c.name);
-    if (!candidate) continue;
-    const confidence = scoreCandidate(target, candidate);
+  for (const c of index) {
+    const confidence = scoreCandidate(target, c.normalized);
     if (confidence == null || confidence < 0.15) continue;
     if (!best || confidence > best.confidence) best = { productId: c.id, confidence };
   }
@@ -65,15 +78,13 @@ export function bestMatch(scrapedName: string, candidates: MatchCandidate[]): Sc
  * worth surfacing so a human isn't starting from zero). Never used to
  * auto-approve or auto-match — display only.
  */
-export function closestCandidate(scrapedName: string, candidates: MatchCandidate[]): ScoredMatch | null {
+export function closestCandidate(scrapedName: string, index: MatchIndex): ScoredMatch | null {
   const target = normalize(scrapedName);
   if (!target) return null;
 
   let best: ScoredMatch | null = null;
-  for (const c of candidates) {
-    const candidate = normalize(c.name);
-    if (!candidate) continue;
-    const confidence = scoreCandidate(target, candidate);
+  for (const c of index) {
+    const confidence = scoreCandidate(target, c.normalized);
     if (confidence == null) continue;
     if (!best || confidence > best.confidence) best = { productId: c.id, confidence };
   }
