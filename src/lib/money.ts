@@ -17,3 +17,9 @@ export function num(n: number | string | null | undefined): number {
   const v = typeof n === "string" ? Number(n) : (n ?? 0);
   return Number.isFinite(v) ? v : 0;
 }
+
+/** Splits an amount into whole/cents for a shelf-tag-style price display (big numeral, small superscript cents). */
+export function splitXcg(n: number): { whole: string; cents: string } {
+  const [whole, cents] = Math.abs(n).toFixed(2).split(".");
+  return { whole, cents };
+}
