@@ -1,6 +1,6 @@
 import { getSql } from "@/lib/db";
 import { storeScrapers } from "./index";
-import { bestMatch, type MatchCandidate } from "./match";
+import { bestMatch, buildMatchIndex, type MatchCandidate } from "./match";
 
 export type ScrapeRunSummary = {
   runId: number;
@@ -23,6 +23,7 @@ export async function runScrapeAndStage(triggeredBy: "cron" | "manual"): Promise
   const runId = run.id;
 
   const candidates = await sql<MatchCandidate>`select id, name from products`;
+  const matchIndex = buildMatchIndex(candidates);
   const summary: ScrapeRunSummary["stores"] = [];
   let totalStaged = 0;
 
@@ -35,7 +36,7 @@ export async function runScrapeAndStage(triggeredBy: "cron" | "manual"): Promise
     try {
       const items = await scraper.run();
       for (const item of items) {
-        const match = bestMatch(item.name, candidates);
+        const match = bestMatch(item.name, matchIndex);
         for (const storeId of scraper.storeIds) {
           await sql`
             insert into scraped_prices

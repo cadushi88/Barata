@@ -3,7 +3,7 @@ import { getSql } from "@/lib/db";
 import { adminMiddleware } from "@/lib/auth/admin-middleware";
 import { z } from "zod";
 import { runScrapeAndStage } from "./scrapers/run";
-import { closestCandidate, type MatchCandidate } from "./scrapers/match";
+import { buildMatchIndex, closestCandidate, type MatchCandidate } from "./scrapers/match";
 
 export type ScrapeRunRow = {
   id: number;
@@ -119,11 +119,27 @@ export const listPendingPrices = createServerFn({ method: "GET" })
     }
     const candidates = await sql<MatchCandidate>`select id, name from products`;
     const candidateNameById = new Map(candidates.map((c) => [c.id, c.name]));
+    // buildMatchIndex normalizes every candidate name once for this whole call,
+    // not once per unmatched row — see match.ts's MatchIndex comment. Without
+    // this, a large unmatched backlog (a bad scrape, a stuck-open review queue)
+    // turns every page load and every post-approve/reject refetch into an
+    // O(unmatched rows × 453 candidates) pass of Unicode normalization, which is
+    // exactly what made the queue feel broken during the Vreugdenhil incident.
+    const matchIndex = buildMatchIndex(candidates);
+    // A hard cap on top of that: no realistic review session works through
+    // thousands of rows in one sitting, and computing a guess for far more
+    // than fit on a few screens' worth buys nothing but a slower request.
+    const MAX_GUESS_ROWS = 500;
+    let guessesComputed = 0;
     return rows.map((r): PendingPriceRow => {
       if (r.matched_product_id != null) {
         return { ...r, closest_guess_product_id: null, closest_guess_name: null, closest_guess_confidence: null };
       }
-      const guess = closestCandidate(r.raw_name, candidates);
+      if (guessesComputed >= MAX_GUESS_ROWS) {
+        return { ...r, closest_guess_product_id: null, closest_guess_name: null, closest_guess_confidence: null };
+      }
+      guessesComputed++;
+      const guess = closestCandidate(r.raw_name, matchIndex);
       return {
         ...r,
         closest_guess_product_id: guess?.productId ?? null,
