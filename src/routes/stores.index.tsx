@@ -3,7 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Shell } from "@/components/shell";
 import { listStores } from "@/lib/server/catalog";
 
-export const Route = createFileRoute("/stores/")({ component: StoresPage });
+export const Route = createFileRoute("/stores/")({
+  component: StoresPage,
+  head: () => ({ meta: [{ title: "Stores — Barata" }] }),
+});
 
 function StoresPage() {
   const q = useQuery({ queryKey: ["stores"], queryFn: () => listStores() });

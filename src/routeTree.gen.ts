@@ -10,12 +10,15 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccountRouteImport } from './routes/account'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ContributeRouteImport } from './routes/contribute'
 import { Route as ListRouteImport } from './routes/list'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as PlanRouteImport } from './routes/plan'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
 import { Route as AdminPricesRouteImport } from './routes/admin.prices'
@@ -32,6 +35,11 @@ import { Route as ApiProductPhotoProductIdRouteImport } from './routes/api/produ
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -62,6 +70,16 @@ const MessagesRoute = MessagesRouteImport.update({
 const PlanRoute = PlanRouteImport.update({
   id: '/plan',
   path: '/plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -128,12 +146,15 @@ const ApiProductPhotoProductIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/admin': typeof AdminRouteWithChildren
   '/contribute': typeof ContributeRoute
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/plan': typeof PlanRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/prices': typeof AdminPricesRoute
   '/admin/receipts': typeof AdminReceiptsRoute
@@ -149,11 +170,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/contribute': typeof ContributeRoute
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/plan': typeof PlanRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/prices': typeof AdminPricesRoute
   '/admin/receipts': typeof AdminReceiptsRoute
@@ -170,12 +194,15 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/admin': typeof AdminRouteWithChildren
   '/contribute': typeof ContributeRoute
   '/list': typeof ListRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/plan': typeof PlanRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/prices': typeof AdminPricesRoute
   '/admin/receipts': typeof AdminReceiptsRoute
@@ -193,12 +220,15 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
     | '/admin'
     | '/contribute'
     | '/list'
     | '/login'
     | '/messages'
     | '/plan'
+    | '/privacy'
+    | '/terms'
     | '/admin/messages'
     | '/admin/prices'
     | '/admin/receipts'
@@ -214,11 +244,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/account'
     | '/contribute'
     | '/list'
     | '/login'
     | '/messages'
     | '/plan'
+    | '/privacy'
+    | '/terms'
     | '/admin/messages'
     | '/admin/prices'
     | '/admin/receipts'
@@ -234,12 +267,15 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/account'
     | '/admin'
     | '/contribute'
     | '/list'
     | '/login'
     | '/messages'
     | '/plan'
+    | '/privacy'
+    | '/terms'
     | '/admin/messages'
     | '/admin/prices'
     | '/admin/receipts'
@@ -256,12 +292,15 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRoute: typeof AccountRoute
   AdminRoute: typeof AdminRouteWithChildren
   ContributeRoute: typeof ContributeRoute
   ListRoute: typeof ListRoute
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRoute
   PlanRoute: typeof PlanRoute
+  PrivacyRoute: typeof PrivacyRoute
+  TermsRoute: typeof TermsRoute
   ApiScrapeRunRoute: typeof ApiScrapeRunRoute
   ProductsIdRoute: typeof ProductsIdRoute
   StoresIdRoute: typeof StoresIdRoute
@@ -277,6 +316,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -319,6 +365,20 @@ declare module '@tanstack/react-router' {
       path: '/plan'
       fullPath: '/plan'
       preLoaderRoute: typeof PlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -430,12 +490,15 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRoute: AccountRoute,
   AdminRoute: AdminRouteWithChildren,
   ContributeRoute: ContributeRoute,
   ListRoute: ListRoute,
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRoute,
   PlanRoute: PlanRoute,
+  PrivacyRoute: PrivacyRoute,
+  TermsRoute: TermsRoute,
   ApiScrapeRunRoute: ApiScrapeRunRoute,
   ProductsIdRoute: ProductsIdRoute,
   StoresIdRoute: StoresIdRoute,

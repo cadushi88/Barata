@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
 
-export const Route = createFileRoute("/plan")({ component: PlanPage });
+export const Route = createFileRoute("/plan")({
+  component: PlanPage,
+  head: () => ({ meta: [{ title: "Business plan — Barata" }] }),
+});
 
 function PlanPage() {
   return (
