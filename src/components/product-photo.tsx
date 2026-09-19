@@ -120,7 +120,7 @@ export function ProductPhoto({
   if (!src) {
     return (
       <div className={`flex items-center justify-center bg-primary/10 ${box}`} aria-hidden>
-        <img src="/favicon.svg" alt="" className={`${LOGO_SIZE[size]} opacity-60`} />
+        <img src="/favicon.png" alt="" className={`${LOGO_SIZE[size]} opacity-60`} />
       </div>
     );
   }
