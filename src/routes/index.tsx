@@ -80,13 +80,15 @@ function Home() {
   return (
     <Shell>
       <div
-        className="-mx-4 mb-5 px-4 py-2 text-center text-xs font-bold uppercase tracking-wide text-primary-fg md:mb-6"
+        className="-mx-4 mb-5 flex justify-center px-4 py-2 md:mb-6"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(-45deg, var(--color-primary) 0 18px, color-mix(in srgb, var(--color-primary) 80%, black) 18px 36px)",
+            "repeating-linear-gradient(-45deg, var(--color-highlight) 0 14px, var(--color-good) 14px 28px, var(--color-primary) 28px 42px, var(--color-warn) 42px 56px)",
         }}
       >
-        This week — biggest spreads across every store on the island
+        <span className="rounded-full bg-navy px-3 py-1 text-center text-xs font-bold uppercase tracking-wide text-navy-fg">
+          This week — biggest spreads across every store on the island
+        </span>
       </div>
 
       <section className="mb-5 grid gap-5 md:mb-8 md:grid-cols-[1.3fr_1fr] md:items-center">
