@@ -14,6 +14,14 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
  */
 const MAX_PARSES_PER_HOUR = 30;
 
+/**
+ * Most receipts one account may submit for manual review per hour. Doesn't spend
+ * an API call, but each one is a row plus up to ~3 MB of photo bytes stored in
+ * Postgres — still worth a ceiling against a submit-loop filling the review queue
+ * (and the database) with junk.
+ */
+const MAX_SUBMISSIONS_PER_HOUR = 20;
+
 /** Most price lines one receipt commit may publish. */
 const MAX_COMMIT_ITEMS = 200;
 
@@ -21,6 +29,18 @@ const RECEIPT_MODEL = "claude-sonnet-5";
 
 const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 type SupportedImageType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+/** Same cap `product_photos` uploads use — well under Vercel's serverless request body limit. */
+const MAX_PHOTO_BYTES = 3_000_000;
+
+/** Decodes a `data:<mime>;base64,...` URL into raw bytes, or null if it's not a supported image / too big. */
+function parsePhotoDataUrl(dataUrl: string): { contentType: SupportedImageType; bytes: Buffer } | null {
+  const parsed = parseImageDataUrl(dataUrl);
+  if (!parsed) return null;
+  const bytes = Buffer.from(parsed.data, "base64");
+  if (bytes.byteLength === 0 || bytes.byteLength > MAX_PHOTO_BYTES) return null;
+  return { contentType: parsed.mediaType, bytes };
+}
 
 /** Splits a `data:image/...;base64,...` URL into the parts Claude's vision input needs. */
 function parseImageDataUrl(dataUrl: string): { mediaType: SupportedImageType; data: string } | null {
@@ -424,12 +444,67 @@ export const commitReceipt = createServerFn({ method: "POST" })
     return { ok: true as const, n: lines.length };
   });
 
+/**
+ * Queues a receipt for manual (off-platform) review instead of running it through
+ * the paid AI extractor — no `ANTHROPIC_API_KEY` involved at all. The photo (if
+ * any) is kept on the row until someone transcribes it and lands the results as a
+ * migration into `scraped_prices` (see `commitReceipt`'s comment on that table),
+ * at which point `photo_data` gets cleared — see `/admin/receipts`.
+ */
+export const submitReceiptForReview = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    (input: { text?: string; storeId?: string; imageDataUrl?: string; purchaseDate?: string | null }) =>
+      z
+        .object({
+          text: z.string().max(20000).optional(),
+          storeId: z.string().optional(),
+          imageDataUrl: z.string().max(4_200_000).optional(),
+          purchaseDate: z.string().nullish(),
+        })
+        .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const text = data.text?.trim();
+    if (!text && !data.imageDataUrl) {
+      return { ok: false as const, error: "Add receipt text or a photo before submitting" };
+    }
+    const sql = await getSql();
+    const [{ n: recentSubmissions }] = await sql<{ n: number }>`
+      select count(*)::int as n from receipts
+      where user_id = ${context.userId} and created_at > now() - interval '1 hour'
+    `;
+    if (recentSubmissions >= MAX_SUBMISSIONS_PER_HOUR) {
+      return { ok: false as const, error: "Too many receipts in the last hour — try again later" };
+    }
+    let photo: { contentType: SupportedImageType; bytes: Buffer } | null = null;
+    if (data.imageDataUrl) {
+      photo = parsePhotoDataUrl(data.imageDataUrl);
+      if (!photo) return { ok: false as const, error: "That photo couldn't be read — try a different one" };
+    }
+    const storeRows = await sql<{ id: string }>`select id from stores`;
+    const requestedStoreId = storeRows.some((s) => s.id === data.storeId) ? data.storeId : null;
+    const purchaseDate = normalizeReceiptDate(data.purchaseDate);
+    if (data.purchaseDate && !purchaseDate) {
+      return { ok: false as const, error: "Purchase date must be a real date within the last 10 years" };
+    }
+    const rec = await sql<{ id: number }>`
+      insert into receipts (user_id, store_id, raw_text, status, purchase_date, photo_data, photo_content_type)
+      values (
+        ${context.userId}, ${requestedStoreId}, ${text || null}, 'awaiting_review', ${purchaseDate},
+        ${photo?.bytes ?? null}, ${photo?.contentType ?? null}
+      )
+      returning id
+    `;
+    return { ok: true as const, receiptId: rec[0]?.id };
+  });
+
 export const myReceipts = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
-    return sql<{ id: number; store_id: string | null; status: string; created_at: string }>`
-      select id, store_id, status, created_at::text as created_at
+    return sql<{ id: number; store_id: string | null; status: string; created_at: string; has_photo: boolean }>`
+      select id, store_id, status, created_at::text as created_at, (photo_data is not null) as has_photo
       from receipts
       where user_id = ${context.userId}
       order by created_at desc

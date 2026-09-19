@@ -14,7 +14,7 @@ Set these in Vercel → Project → Settings → Environment Variables, for both
 | `DATABASE_URL` | Yes | Neon/Postgres connection string. Without it the app falls back to PGLite even when deployed — fine for a demo, but data doesn't persist across deploys/restarts. Must be set in the **Build** environment too (not just runtime) — that's what triggers `db:migrate` on `npm run build`. |
 | `BETTER_AUTH_SECRET` | **Yes, once `DATABASE_URL` is set** | Signs and verifies session cookies. **The app refuses to start without this when `DATABASE_URL` is set** — see below for why. |
 | `ADMIN_EMAILS` | **Yes, once `DATABASE_URL` is set** | Comma-separated list of email addresses allowed into `/admin` (case-insensitive), e.g. `you@example.com,ops@example.com`. **The app refuses to start without this when `DATABASE_URL` is set** — an unset allowlist on a real deployment means nobody could ever reach `/admin`. |
-| `ANTHROPIC_API_KEY` | Yes (for AI receipt reading) | Claude API key used by `parseReceipt` to read grocery receipts. Without it, receipt reading returns a clear "AI is not available" message instead of failing. |
+| `ANTHROPIC_API_KEY` | Optional | Claude API key for the (currently unused) `parseReceipt` AI extractor — `/contribute` submits receipts straight to a manual-review queue (`submitReceiptForReview`) instead, so this costs nothing to leave unset. Kept working in case AI reading is switched back on later: without it, `parseReceipt` returns a clear "AI is not available" message instead of failing. |
 | `BETTER_AUTH_URL` | Optional | Only needed if you see "Invalid origin" errors — the app already trusts Vercel's own `VERCEL_URL`/`VERCEL_PROJECT_PRODUCTION_URL` automatically. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional | Enables the "Continue with Google" button. Hidden client-side when unset. |
 
@@ -62,11 +62,11 @@ After setting the variables above and redeploying:
    old random secret won't verify — sign out and back in).
 2. **Quantity + remove**: on `/list`, use the +/− stepper and the Remove
    button — both should update immediately with no error banner.
-3. **Receipt parsing**: on `/contribute`, click "Read with AI" with the
-   sample receipt text already filled in.
-   - With `ANTHROPIC_API_KEY` set: items appear, sorted by category and price.
-   - Without it: a clear "AI is not available in this environment" message —
-     not a generic failure.
+3. **Receipt submission**: on `/contribute`, add some receipt text and/or a
+   photo and click "Submit for review" — it should confirm with a receipt
+   number and show up under "Your recent submissions". Then, signed in as an
+   admin, confirm it appears on `/admin/receipts` with status "awaiting
+   review", the photo thumbnail (if any) loads, and the raw text is visible.
 4. **Messages**: on `/messages`, send a note and confirm it appears in the
    list below the form with no error.
 5. **Admin access**: sign in with an email listed in `ADMIN_EMAILS`, confirm

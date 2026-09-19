@@ -29,6 +29,7 @@ import { Route as ApiScrapeRunRouteImport } from './routes/api/scrape-run'
 import { Route as ProductsIdRouteImport } from './routes/products.$id'
 import { Route as StoresIndexRouteImport } from './routes/stores.index'
 import { Route as StoresIdRouteImport } from './routes/stores.$id'
+import { Route as ApiAdminReceiptPhotoReceiptIdRouteImport } from './routes/api/admin-receipt-photo.$receiptId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiProductPhotoProductIdRouteImport } from './routes/api/product-photo.$productId'
 
@@ -132,6 +133,12 @@ const StoresIdRoute = StoresIdRouteImport.update({
   path: '/stores/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminReceiptPhotoReceiptIdRoute =
+  ApiAdminReceiptPhotoReceiptIdRouteImport.update({
+    id: '/api/admin-receipt-photo/$receiptId',
+    path: '/api/admin-receipt-photo/$receiptId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -165,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/stores/$id': typeof StoresIdRoute
   '/admin/': typeof AdminIndexRoute
   '/stores/': typeof StoresIndexRoute
+  '/api/admin-receipt-photo/$receiptId': typeof ApiAdminReceiptPhotoReceiptIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/product-photo/$productId': typeof ApiProductPhotoProductIdRoute
 }
@@ -188,6 +196,7 @@ export interface FileRoutesByTo {
   '/stores/$id': typeof StoresIdRoute
   '/admin': typeof AdminIndexRoute
   '/stores': typeof StoresIndexRoute
+  '/api/admin-receipt-photo/$receiptId': typeof ApiAdminReceiptPhotoReceiptIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/product-photo/$productId': typeof ApiProductPhotoProductIdRoute
 }
@@ -213,6 +222,7 @@ export interface FileRoutesById {
   '/stores/$id': typeof StoresIdRoute
   '/admin/': typeof AdminIndexRoute
   '/stores/': typeof StoresIndexRoute
+  '/api/admin-receipt-photo/$receiptId': typeof ApiAdminReceiptPhotoReceiptIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/product-photo/$productId': typeof ApiProductPhotoProductIdRoute
 }
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/stores/$id'
     | '/admin/'
     | '/stores/'
+    | '/api/admin-receipt-photo/$receiptId'
     | '/api/auth/$'
     | '/api/product-photo/$productId'
   fileRoutesByTo: FileRoutesByTo
@@ -262,6 +273,7 @@ export interface FileRouteTypes {
     | '/stores/$id'
     | '/admin'
     | '/stores'
+    | '/api/admin-receipt-photo/$receiptId'
     | '/api/auth/$'
     | '/api/product-photo/$productId'
   id:
@@ -286,6 +298,7 @@ export interface FileRouteTypes {
     | '/stores/$id'
     | '/admin/'
     | '/stores/'
+    | '/api/admin-receipt-photo/$receiptId'
     | '/api/auth/$'
     | '/api/product-photo/$productId'
   fileRoutesById: FileRoutesById
@@ -305,6 +318,7 @@ export interface RootRouteChildren {
   ProductsIdRoute: typeof ProductsIdRoute
   StoresIdRoute: typeof StoresIdRoute
   StoresIndexRoute: typeof StoresIndexRoute
+  ApiAdminReceiptPhotoReceiptIdRoute: typeof ApiAdminReceiptPhotoReceiptIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiProductPhotoProductIdRoute: typeof ApiProductPhotoProductIdRoute
 }
@@ -451,6 +465,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoresIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin-receipt-photo/$receiptId': {
+      id: '/api/admin-receipt-photo/$receiptId'
+      path: '/api/admin-receipt-photo/$receiptId'
+      fullPath: '/api/admin-receipt-photo/$receiptId'
+      preLoaderRoute: typeof ApiAdminReceiptPhotoReceiptIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -503,6 +524,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProductsIdRoute: ProductsIdRoute,
   StoresIdRoute: StoresIdRoute,
   StoresIndexRoute: StoresIndexRoute,
+  ApiAdminReceiptPhotoReceiptIdRoute: ApiAdminReceiptPhotoReceiptIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiProductPhotoProductIdRoute: ApiProductPhotoProductIdRoute,
 }
