@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { adminMiddleware } from "@/lib/auth/admin-middleware";
+import { z } from "zod";
 
 export type AdminOverview = {
   pendingPrices: number;
@@ -64,6 +65,20 @@ export const listAllReceipts = createServerFn({ method: "GET" })
       order by r.created_at desc
       limit 100
     `;
+  });
+
+/** Dismisses a receipt that doesn't need transcribing (spam, duplicate, wrong photo, a test submission…). */
+export const deleteReceipt = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
+  .validator((input: { receiptId: number }) => z.object({ receiptId: z.number().int().positive() }).parse(input))
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    // `scraped_prices.receipt_id` is `on delete set null`, so a receipt whose items
+    // already made it into the price-approval queue can still be removed here
+    // without touching those staged rows — only the receipt (and its photo) go away.
+    const deleted = await sql<{ id: number }>`delete from receipts where id = ${data.receiptId} returning id`;
+    if (!deleted[0]) return { ok: false as const, error: "Receipt not found" };
+    return { ok: true as const };
   });
 
 export type AdminUserRow = {

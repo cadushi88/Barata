@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { listAllReceipts, type AdminReceiptRow } from "@/lib/server/admin";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { deleteReceipt, listAllReceipts, type AdminReceiptRow } from "@/lib/server/admin";
 import { useState } from "react";
 
 export const Route = createFileRoute("/admin/receipts")({ component: ReceiptsPage });
@@ -19,13 +19,10 @@ const STATUS_TONE: Record<string, string> = {
  * on its own, so the image has to be attached by hand).
  */
 function claudeCodePrompt(r: AdminReceiptRow): string {
-  const lines = [
-    `Please transcribe this Barata receipt and land its prices as a migration into scraped_prices (see how earlier receipt-batch migrations did it) — receipt #${r.id}.`,
-    `Store: ${r.store_name ?? "not specified — guess from the text/photo if possible"}`,
-    `Purchase date: ${r.purchase_date ?? "not specified — guess from the text/photo if possible"}`,
-  ];
-  if (r.has_photo) lines.push("A photo was downloaded alongside this — attach it to your message.");
-  if (r.raw_text) lines.push("", "Raw text as typed by the submitter:", r.raw_text);
+  const lines = [`Receipt #${r.id}`];
+  if (r.store_name) lines.push(r.store_name);
+  if (r.purchase_date) lines.push(r.purchase_date);
+  if (r.raw_text) lines.push("", r.raw_text);
   return lines.join("\n");
 }
 
@@ -51,6 +48,40 @@ function CopyForClaudeButton({ row }: { row: AdminReceiptRow }) {
     >
       {copied ? "Copied + downloaded ✓" : "Copy for Claude Code"}
     </button>
+  );
+}
+
+function RemoveButton({ receiptId }: { receiptId: number }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const remove = useMutation({
+    mutationFn: () => deleteReceipt({ data: { receiptId } }),
+    onSuccess: (res) => {
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["admin-receipts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+    },
+    onError: () => setError("Could not remove that receipt — try again."),
+  });
+  return (
+    <div>
+      <button
+        type="button"
+        disabled={remove.isPending}
+        className="h-8 rounded-lg border border-line bg-bg px-3 text-xs font-medium text-warn hover:bg-warn/10 disabled:opacity-60"
+        onClick={() => {
+          if (!window.confirm(`Remove receipt #${receiptId}? This can't be undone.`)) return;
+          setError(null);
+          remove.mutate();
+        }}
+      >
+        {remove.isPending ? "Removing…" : "Remove"}
+      </button>
+      {error ? <p className="mt-1 text-xs text-warn">{error}</p> : null}
+    </div>
   );
 }
 
@@ -117,7 +148,10 @@ function ReceiptsPage() {
                       {!r.has_photo && !r.raw_text ? <span className="text-faint">—</span> : null}
                     </td>
                     <td className="px-4 py-3">
-                      {r.status === "awaiting_review" ? <CopyForClaudeButton row={r} /> : null}
+                      <div className="flex flex-col items-start gap-2">
+                        {r.status === "awaiting_review" ? <CopyForClaudeButton row={r} /> : null}
+                        <RemoveButton receiptId={r.id} />
+                      </div>
                     </td>
                   </tr>
                 ))}
