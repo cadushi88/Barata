@@ -183,7 +183,15 @@ async function parseReceiptInner(
     const catalog = await sql<{ id: number; name: string; category: string }>`
       select id, name, category from products
     `;
-    const catalogHint = catalog.map((p) => `${p.id}|${p.name}|${p.category}`).join("\n");
+    // The catalog used to be small enough (~435 items) to paste in full as a matching
+    // hint. After the full catalog reload it's 10,000+ rows — pasting all of it turned
+    // every single receipt scan into a ~150k-token request (plus the photo), which is
+    // both needless cost and a real risk of tripping a request-size limit. The model
+    // doesn't need the full catalog anyway: `scoreMatch` below already does the actual
+    // item-to-product matching locally, against the complete in-memory `catalog`, once
+    // the model has extracted plain-text line items — the prompt only needs enough to
+    // steer naming/category conventions, which the category list alone covers.
+    const categories = [...new Set(catalog.map((p) => p.category))].sort();
     const storeRows = await sql<{ id: string; name: string }>`select id, name from stores`;
     const storeHint = storeRows.map((s) => s.name).join(", ");
 
@@ -194,7 +202,7 @@ async function parseReceiptInner(
 "isWeighed": true for any item sold by weight, recognizable from patterns like "2.230 kg @ FL3.95/kg" or "1.860 kg @ FL8.95/kg" printed above or below the item name.
 "unitPrice": for weighed items ONLY, the price PER KG (the "@ FLx.xx/kg" figure), NOT the line total — this is what makes two purchases of the same product at different weights actually comparable. For non-weighed items, set unitPrice to null.
 Amounts are in XCG (Caribbean guilder; treat old "FL"/Antillean florin amounts as equivalent to XCG). Ignore totals, tax, change, and voided lines.
-Prefer matching item names to this catalog (id|name|category):\n${catalogHint}\n
+"category" must be one of: ${categories.join(", ")}.
 Receipt text:\n${data.text || "(image only)"}`;
 
     const userContent: Anthropic.Messages.ContentBlockParam[] = [];
@@ -216,7 +224,20 @@ Receipt text:\n${data.text || "(image only)"}`;
       });
     } catch (err) {
       if (err instanceof Anthropic.APIError) {
-        return { ok: false as const, error: `Claude API error ${err.status}` };
+        // `err.message` already embeds Anthropic's own error body (see the SDK's
+        // APIError.makeMessage) — logging it is the only way to see *why* a 400
+        // happened (bad image data, a request that's too large, an unsupported
+        // schema shape, ...) instead of just that one happened. The status alone,
+        // which is all the client used to get, gave no way to diagnose this from
+        // a bug report.
+        console.error("[parseReceipt] Anthropic API error", err.status, err.message);
+        const reason = err.error && typeof err.error === "object" && "error" in err.error
+          ? (err.error as { error?: { message?: string } }).error?.message
+          : undefined;
+        return {
+          ok: false as const,
+          error: reason ? `Claude API error ${err.status}: ${reason}` : `Claude API error ${err.status}`,
+        };
       }
       return { ok: false as const, error: "Could not reach the AI service" };
     }
