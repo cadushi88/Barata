@@ -7,20 +7,22 @@
   --color-muted: #5c6672;
   --color-faint: #6b7280;
   --color-line: #e2e2e2;
-  --color-primary: #ff7900;
-  --color-primary-fg: #10203a;
+  --color-primary: #fd9905;
+  --color-primary-fg: #171b20;
   --color-leaf: #2f6b4f;
-  --color-warn: #9a4a1a;
-  --color-good: #0f9d58;
+  --color-warn: #c7202a;
+  --color-good: #0d9138;
   /* A constant brand navy for structural chrome (the header) — deliberately
      does NOT redefine under dark mode, unlike every other token above.
      Real supermarket-signage headers stay the same brand color regardless of
-     the visitor's OS theme; only the page content underneath re-themes. */
-  --color-navy: #0a2540;
+     the visitor's OS theme; only the page content underneath re-themes.
+     Matched to the cart-icon logo's near-black, replacing the old blue navy. */
+  --color-navy: #171b20;
   --color-navy-fg: #ffffff;
-  /* Shelf-tag yellow — the "today's find" price-tag callout, used sparingly. */
-  --color-highlight: #ffcc00;
-  --color-highlight-fg: #10203a;
+  /* Shelf-tag yellow — the "today's find" price-tag callout, used sparingly.
+     Matches the logo's background yellow. */
+  --color-highlight: #fed716;
+  --color-highlight-fg: #171b20;
   --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Oswald", "Arial Narrow", sans-serif;
   --radius-sm: 3px;
@@ -47,11 +49,11 @@
   --dark-muted: #9a9a9e;
   --dark-faint: #838387;
   --dark-line: #2c2c2e;
-  --dark-primary: #ffa94d;
-  --dark-primary-fg: #0d0d0e;
+  --dark-primary: #ffab3d;
+  --dark-primary-fg: #14171c;
   --dark-leaf: #6bbd8f;
-  --dark-warn: #e2874a;
-  --dark-good: #17c76c;
+  --dark-warn: #ff5b62;
+  --dark-good: #1ed172;
 }
 
 @media (prefers-color-scheme: dark) {
