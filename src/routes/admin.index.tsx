@@ -10,6 +10,7 @@ function AdminOverviewPage() {
 
   const cards = [
     { to: "/admin/prices", label: "Pending price approvals", value: d?.pendingPrices, tone: d && d.pendingPrices > 0 ? "warn" : "good" },
+    { to: "/admin/receipts", label: "Receipts awaiting transcription", value: d?.awaitingTranscription, tone: d && d.awaitingTranscription > 0 ? "warn" : "good" },
     { to: "/admin/receipts", label: "Receipts awaiting review", value: d?.pendingReceipts, tone: d && d.pendingReceipts > 0 ? "warn" : "good" },
     { to: "/admin/messages", label: "Open messages", value: d?.openMessages, tone: d && d.openMessages > 0 ? "warn" : "good" },
     { to: "/admin/receipts", label: "Total receipts", value: d?.totalReceipts, tone: "neutral" },

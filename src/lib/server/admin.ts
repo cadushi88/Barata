@@ -7,6 +7,7 @@ export type AdminOverview = {
   openMessages: number;
   totalReceipts: number;
   pendingReceipts: number;
+  awaitingTranscription: number;
   totalUsers: number;
 };
 
@@ -24,8 +25,13 @@ export const getAdminOverview = createServerFn({ method: "GET" })
     const [{ n: pendingReceipts }] = await sql<{ n: number }>`
       select count(*)::int as n from receipts where status = 'pending_review'
     `;
+    // Submitted with no AI call — waiting for someone to read the photo/text and
+    // land the result as a migration (see receipts.ts's submitReceiptForReview).
+    const [{ n: awaitingTranscription }] = await sql<{ n: number }>`
+      select count(*)::int as n from receipts where status = 'awaiting_review'
+    `;
     const [{ n: totalUsers }] = await sql<{ n: number }>`select count(*)::int as n from "user"`;
-    return { pendingPrices, openMessages, totalReceipts, pendingReceipts, totalUsers };
+    return { pendingPrices, openMessages, totalReceipts, pendingReceipts, awaitingTranscription, totalUsers };
   });
 
 export type AdminReceiptRow = {
@@ -38,6 +44,8 @@ export type AdminReceiptRow = {
   user_email: string | null;
   user_name: string | null;
   item_count: number;
+  raw_text: string | null;
+  has_photo: boolean;
 };
 
 export const listAllReceipts = createServerFn({ method: "GET" })
@@ -48,7 +56,8 @@ export const listAllReceipts = createServerFn({ method: "GET" })
       select
         r.id, r.status, r.created_at::text as created_at, r.purchase_date::text as purchase_date,
         r.store_id, s.name as store_name, u.email as user_email, u.name as user_name,
-        coalesce(jsonb_array_length(r.parsed -> 'items'), 0) as item_count
+        coalesce(jsonb_array_length(r.parsed -> 'items'), 0) as item_count,
+        r.raw_text, (r.photo_data is not null) as has_photo
       from receipts r
       left join stores s on s.id = r.store_id
       left join "user" u on u."id" = r.user_id

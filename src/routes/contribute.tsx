@@ -2,12 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Shell } from "@/components/shell";
 import { getCatalogStats, listStores } from "@/lib/server/catalog";
-import { commitReceipt, parseReceipt } from "@/lib/server/receipts";
+import { myReceipts, submitReceiptForReview } from "@/lib/server/receipts";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
 import { useRef, useState } from "react";
-import { xcg } from "@/lib/money";
 
 export const Route = createFileRoute("/contribute")({
   component: ContributePage,
@@ -20,14 +19,10 @@ const RECEIPT_JPEG_QUALITY = 0.85;
 /**
  * Downscales + re-encodes a photo to a JPEG data URL client-side before it goes
  * anywhere near the network. A real phone photo is typically 2-8 MB of raw
- * JPEG bytes, which base64 inflates by ~1.37x — comfortably past both
- * `parseReceipt`'s 2.5 MB `imageDataUrl` cap and, for anything much past
- * ~3.3 MB raw, Vercel's ~4.5 MB serverless request body limit. Reading the
- * file with `FileReader.readAsDataURL` untouched (as this route used to)
- * means the request either fails Zod validation or gets rejected by the
- * platform before `parseReceipt` ever runs — indistinguishable, to whoever
- * hit it, from "the AI doesn't work". 1600px keeps receipt text legible for
- * the model while landing well under both ceilings.
+ * JPEG bytes, which base64 inflates by ~1.37x — comfortably past the server's
+ * decoded-bytes cap and, for anything much past that, Vercel's ~4.5 MB
+ * serverless request body limit. 1600px keeps receipt text legible for
+ * whoever transcribes it while landing well under both ceilings.
  */
 function compressReceiptImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -55,70 +50,47 @@ function compressReceiptImage(file: File): Promise<string> {
   });
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  awaiting_review: "Awaiting review",
+  parsed: "Parsed",
+  pending_review: "Prices pending approval",
+  committed: "Live in catalog",
+};
+
 function ContributePage() {
   const { user, isPending } = useCurrentUserState();
   const stores = useQuery({ queryKey: ["stores"], queryFn: () => listStores() });
   const catalogStats = useQuery({ queryKey: ["catalog-stats"], queryFn: () => getCatalogStats() });
+  const myRecent = useQuery({ queryKey: ["my-receipts"], queryFn: () => myReceipts(), enabled: Boolean(user) });
   const [text, setText] = useState(
     "Mangusa Hypermarket\nMelk 1L          3.15\nRijst 1kg        5.49\nKipfilet 1kg    11.20\nBananen 1kg      4.80\nEieren 12        6.25\nTOTAAL          30.89",
   );
   const [storeId, setStoreId] = useState("mangusa-hyper");
-  const [storeManuallySet, setStoreManuallySet] = useState(false);
   const [purchaseDate, setPurchaseDate] = useState<string>("");
   const [imageDataUrl, setImageDataUrl] = useState<string | undefined>();
   const [imageError, setImageError] = useState<string | null>(null);
-  const [parseError, setParseError] = useState<string | null>(null);
-  const [commitError, setCommitError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const authErrorMessage = useAuthErrorMessage();
   // `isPending` only flips on the next render, so two clicks in the same tick both get
-  // through and we parse (and store) the same receipt twice. The ref closes that window.
-  const parsing = useRef(false);
-  const parse = useMutation({
-    mutationFn: () => parseReceipt({ data: { text, storeId, imageDataUrl } }),
+  // through and we submit the same receipt twice. The ref closes that window.
+  const submitting = useRef(false);
+  const submit = useMutation({
+    mutationFn: () => submitReceiptForReview({ data: { text, storeId, imageDataUrl, purchaseDate: purchaseDate || null } }),
     onSuccess: (res) => {
       if (!res.ok) {
-        setParseError(res.error);
+        setSubmitError(res.error);
         return;
       }
-      setParseError(null);
-      // Only auto-apply the AI's detected store if the user hasn't already picked one themselves.
-      if (!storeManuallySet && res.detectedStoreId) setStoreId(res.detectedStoreId);
-      if (res.purchaseDate) setPurchaseDate(res.purchaseDate);
+      setSubmitError(null);
+      setText("");
+      setImageDataUrl(undefined);
+      myRecent.refetch();
     },
     onError: (err) => {
-      // A throw here (Unauthorized, or receipt text past the server's length cap) used
-      // to leave `parse.data` undefined and the UI showing a made-up generic message —
-      // this shows what the server actually said instead.
-      setParseError(
-        authErrorMessage(
-          err,
-          text.length > 20000
-            ? "That receipt is too long — try splitting it up."
-            : "Could not read that receipt — please try again.",
-        ),
-      );
+      setSubmitError(authErrorMessage(err, "Could not submit that receipt — please try again."));
     },
     onSettled: () => {
-      parsing.current = false;
-    },
-  });
-  const committing = useRef(false);
-  const commit = useMutation({
-    mutationFn: () => {
-      const items = (parse.data && parse.data.ok ? parse.data.items : [])
-        .filter((i) => i.productId)
-        .map((i) => ({ productId: i.productId as number, amount: i.amount }));
-      const receiptId = parse.data && parse.data.ok ? parse.data.receiptId : 0;
-      return commitReceipt({ data: { receiptId: receiptId ?? 0, storeId, items, purchaseDate: purchaseDate || null } });
-    },
-    onSuccess: (res) => {
-      setCommitError(res.ok ? null : res.error);
-    },
-    onError: (err) => {
-      setCommitError(authErrorMessage(err, "Could not submit these prices. Please try again."));
-    },
-    onSettled: () => {
-      committing.current = false;
+      submitting.current = false;
     },
   });
 
@@ -131,18 +103,17 @@ function ContributePage() {
   }
   if (!user) return <RedirectToSignIn />;
 
-  const parsed = parse.data && parse.data.ok ? parse.data : null;
-
   return (
     <Shell>
       <h1 className="font-display text-2xl font-semibold md:text-3xl">Update prices</h1>
       <p className="mt-2 max-w-xl text-sm text-muted md:text-base">
-        Paste a receipt or type the lines. Claude reads the items, sorts them by category and price, and matches them to the catalog.
+        Paste a receipt or type the lines, and/or attach a photo. An admin reads it, matches the items to the
+        catalog, and reviews the prices before anything goes live — nothing is added to the public catalog
+        automatically.
       </p>
       <p className="mt-3 max-w-xl rounded-lg border border-line bg-surface px-3 py-2 text-xs text-muted">
-        The receipt text and photo you submit here are sent to <strong className="text-ink">Anthropic</strong> (maker
-        of Claude) only to read the line items off the receipt — we don't store the photo itself. Nothing is added
-        to the public catalog automatically: an admin reviews every submission first. See our{" "}
+        The receipt text and photo you submit here are kept private and only used to read the line items off the
+        receipt — see our{" "}
         <Link to="/privacy" className="text-ink underline underline-offset-2">
           Privacy policy
         </Link>{" "}
@@ -154,27 +125,17 @@ function ContributePage() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (parsing.current) return;
-            parsing.current = true;
-            parse.mutate();
+            if (submitting.current) return;
+            submitting.current = true;
+            submit.mutate();
           }}
         >
           <label className="block text-sm">
-            <span className="mb-1 block text-muted">
-              Store
-              {parsed && parse.data?.ok && parse.data.detectedStoreId ? (
-                <span className="ml-2 text-xs text-faint">
-                  AI detected · {Math.round((parse.data.storeConfidence ?? 0) * 100)}% match
-                </span>
-              ) : null}
-            </span>
+            <span className="mb-1 block text-muted">Store</span>
             <select
               className="h-11 w-full rounded-xl border border-line bg-surface px-3"
               value={storeId}
-              onChange={(e) => {
-                setStoreId(e.target.value);
-                setStoreManuallySet(true);
-              }}
+              onChange={(e) => setStoreId(e.target.value)}
             >
               {(stores.data ?? []).map((s) => (
                 <option key={s.id} value={s.id}>
@@ -184,7 +145,7 @@ function ContributePage() {
             </select>
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-muted">Purchase date {purchaseDate ? "" : "(not detected — enter manually)"}</span>
+            <span className="mb-1 block text-muted">Purchase date (optional)</span>
             <input
               type="date"
               className="h-11 w-full rounded-xl border border-line bg-surface px-3"
@@ -194,7 +155,7 @@ function ContributePage() {
             />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-muted">Receipt text</span>
+            <span className="mb-1 block text-muted">Receipt text (optional if you attach a photo)</span>
             <textarea
               className="min-h-48 w-full rounded-md border border-line bg-surface p-3 font-mono text-sm"
               value={text}
@@ -226,78 +187,55 @@ function ContributePage() {
           {imageError ? <p className="text-sm text-warn">{imageError}</p> : null}
           <button
             type="submit"
-            disabled={parse.isPending}
+            disabled={submit.isPending || (!text.trim() && !imageDataUrl)}
             className="h-11 rounded-xl bg-primary px-5 text-sm font-medium text-primary-fg disabled:opacity-60"
           >
-            {parse.isPending ? "Reading receipt…" : "Read with AI"}
+            {submit.isPending ? "Submitting…" : "Submit for review"}
           </button>
-          {parseError ? (
+          {submitError ? (
             <p role="alert" className="text-sm text-warn">
-              {parseError}
+              {submitError}
+            </p>
+          ) : null}
+          {submit.isSuccess && submit.data?.ok && !submitError ? (
+            <p className="text-sm text-good">
+              Thanks — receipt #{submit.data.receiptId} submitted. It'll show up in the catalog once someone reviews
+              and approves the prices.
             </p>
           ) : null}
         </form>
 
         <div className="rounded-md border border-line bg-surface p-4">
-          <h2 className="font-medium">Sorted items</h2>
-          {!parsed ? (
-            <p className="mt-2 text-sm text-muted">Results appear here, grouped by type.</p>
+          <h2 className="font-medium">Your recent submissions</h2>
+          {!user ? null : myRecent.isLoading ? (
+            <div className="mt-3 space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-10 animate-pulse rounded-md bg-line/60" />
+              ))}
+            </div>
+          ) : (myRecent.data ?? []).length === 0 ? (
+            <p className="mt-2 text-sm text-muted">Nothing submitted yet — your receipts will show up here.</p>
           ) : (
-            <>
-              {parse.data?.ok && parse.data.isStale ? (
-                <p className="mb-3 rounded-lg bg-warn/10 px-3 py-2 text-xs text-warn">
-                  This receipt is over a year old — treat its prices as historical, not current.
-                </p>
-              ) : null}
-              <ul className="mt-3 space-y-2">
-                {parsed.items.map((it, i) => (
-                  <li key={i} className="flex items-start justify-between gap-3 text-sm">
-                    <div>
-                      <div>{it.name}</div>
-                      <div className="text-xs text-faint">
-                        {it.category}
-                        {it.matchedName ? ` · matched ${it.matchedName}` : " · unmatched"}
-                        {it.isWeighed ? " · priced per kg" : ""}
-                        {it.missingUnitPrice ? " · sold by weight, no per-kg price on the line — not published" : ""}
-                      </div>
+            <ul className="mt-3 space-y-2">
+              {(myRecent.data ?? []).map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm">
+                  <div>
+                    <div>Receipt #{r.id}</div>
+                    <div className="text-xs text-faint">
+                      {new Date(r.created_at).toLocaleDateString()}
+                      {r.has_photo ? " · with photo" : ""}
                     </div>
-                    <div className="tabular-nums">
-                      {xcg(it.amount)}
-                      {it.isWeighed ? <span className="text-xs text-faint">/kg</span> : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <button
-                type="button"
-                className="mt-4 h-11 rounded-xl bg-ink px-4 text-sm text-bg disabled:opacity-50"
-                disabled={commit.isPending || !parsed.items.some((i) => i.productId)}
-                onClick={() => {
-                  if (committing.current) return;
-                  committing.current = true;
-                  commit.mutate();
-                }}
-              >
-                {commit.isPending ? "Saving…" : "Submit matched prices"}
-              </button>
-              {commit.data && commit.data.ok && !commitError ? (
-                <p className="mt-2 text-sm text-good">
-                  Submitted {commit.data.n} price{commit.data.n === 1 ? "" : "s"} for review — they'll appear in the
-                  catalog once approved.
-                </p>
-              ) : null}
-              {commitError ? (
-                <p role="alert" className="mt-2 text-sm text-warn">
-                  {commitError}
-                </p>
-              ) : null}
-            </>
+                  </div>
+                  <span className="text-xs text-muted">{STATUS_LABEL[r.status] ?? r.status.replace("_", " ")}</span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>
 
       <p className="mt-8 text-xs text-faint">
-        Catalog size: {catalogStats.data?.productCount ?? "—"} products. Unmatched lines stay private until a human maps them.
+        Catalog size: {catalogStats.data?.productCount ?? "—"} products.
       </p>
     </Shell>
   );
