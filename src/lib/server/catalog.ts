@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
+import { adminMiddleware } from "@/lib/auth/admin-middleware";
 import { z } from "zod";
 
 export type StoreRow = {
@@ -432,6 +433,54 @@ export const addPrice = createServerFn({ method: "POST" })
         (${data.storeId}, (select name from products where id = ${data.productId}), ${data.amount},
          ${data.productId}, 1, 'pending', 'manual', ${context.userId})
     `;
+    return { ok: true as const };
+  });
+
+/**
+ * Admin-only shortcut for `addPrice`: writes straight to `prices` instead of
+ * staging into `scraped_prices` for review. An admin submitting a price IS the
+ * reviewer — routing it through the same queue they'd have to go approve
+ * themselves a moment later is pure busywork, not a real safety check.
+ */
+export const adminSetPrice = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
+  .validator(
+    (input: { productId: number; storeId: string; amount: number }) =>
+      z.object({
+        productId: z.number().int().positive(),
+        storeId: z.string().min(1),
+        amount: z.number().positive().max(MAX_PRICE_XCG),
+      }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    const [product] = await sql<{ id: number }>`select id from products where id = ${data.productId}`;
+    if (!product) return { ok: false as const, error: "Product not found" };
+    const [store] = await sql<{ id: string }>`select id from stores where id = ${data.storeId}`;
+    if (!store) return { ok: false as const, error: "Unknown store" };
+    await sql`
+      insert into prices (product_id, store_id, amount, source, user_id, observed_at)
+      values (${data.productId}, ${data.storeId}, ${data.amount}, 'manual', ${context.userId}, now())
+    `;
+    return { ok: true as const };
+  });
+
+/** Admin-only: rename a product. Free-text, no review queue — a typo fix shouldn't need one. */
+export const updateProductName = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
+  .validator(
+    (input: { productId: number; name: string }) =>
+      z.object({
+        productId: z.number().int().positive(),
+        name: z.string().trim().min(1).max(200),
+      }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    const updated = await sql<{ id: number }>`
+      update products set name = ${data.name} where id = ${data.productId} returning id
+    `;
+    if (!updated[0]) return { ok: false as const, error: "Product not found" };
     return { ok: true as const };
   });
 
