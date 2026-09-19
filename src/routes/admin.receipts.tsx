@@ -19,13 +19,10 @@ const STATUS_TONE: Record<string, string> = {
  * on its own, so the image has to be attached by hand).
  */
 function claudeCodePrompt(r: AdminReceiptRow): string {
-  const lines = [
-    `Please transcribe this Barata receipt and land its prices as a migration into scraped_prices (see how earlier receipt-batch migrations did it) — receipt #${r.id}.`,
-    `Store: ${r.store_name ?? "not specified — guess from the text/photo if possible"}`,
-    `Purchase date: ${r.purchase_date ?? "not specified — guess from the text/photo if possible"}`,
-  ];
-  if (r.has_photo) lines.push("A photo was downloaded alongside this — attach it to your message.");
-  if (r.raw_text) lines.push("", "Raw text as typed by the submitter:", r.raw_text);
+  const lines = [`Receipt #${r.id}`];
+  if (r.store_name) lines.push(r.store_name);
+  if (r.purchase_date) lines.push(r.purchase_date);
+  if (r.raw_text) lines.push("", r.raw_text);
   return lines.join("\n");
 }
 
