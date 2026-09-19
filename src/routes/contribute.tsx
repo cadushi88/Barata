@@ -62,9 +62,7 @@ function ContributePage() {
   const stores = useQuery({ queryKey: ["stores"], queryFn: () => listStores() });
   const catalogStats = useQuery({ queryKey: ["catalog-stats"], queryFn: () => getCatalogStats() });
   const myRecent = useQuery({ queryKey: ["my-receipts"], queryFn: () => myReceipts(), enabled: Boolean(user) });
-  const [text, setText] = useState(
-    "Mangusa Hypermarket\nMelk 1L          3.15\nRijst 1kg        5.49\nKipfilet 1kg    11.20\nBananen 1kg      4.80\nEieren 12        6.25\nTOTAAL          30.89",
-  );
+  const [text, setText] = useState("");
   const [storeId, setStoreId] = useState("mangusa-hyper");
   const [purchaseDate, setPurchaseDate] = useState<string>("");
   const [imageDataUrl, setImageDataUrl] = useState<string | undefined>();
@@ -158,6 +156,9 @@ function ContributePage() {
             <span className="mb-1 block text-muted">Receipt text (optional if you attach a photo)</span>
             <textarea
               className="min-h-48 w-full rounded-md border border-line bg-surface p-3 font-mono text-sm"
+              placeholder={
+                "Mangusa Hypermarket\nMelk 1L          3.15\nRijst 1kg        5.49\nKipfilet 1kg    11.20\nBananen 1kg      4.80\nEieren 12        6.25\nTOTAAL          30.89"
+              }
               value={text}
               onChange={(e) => setText(e.target.value)}
             />

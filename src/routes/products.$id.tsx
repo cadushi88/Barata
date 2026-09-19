@@ -1,7 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell } from "@/components/shell";
-import { addToList, getProduct, getPriceHistory, listStores, addPrice, MAX_PRICE_XCG } from "@/lib/server/catalog";
+import {
+  addToList,
+  getProduct,
+  getPriceHistory,
+  listStores,
+  addPrice,
+  adminSetPrice,
+  updateProductName,
+  MAX_PRICE_XCG,
+} from "@/lib/server/catalog";
 import { xcg, num } from "@/lib/money";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
@@ -50,6 +59,23 @@ function ProductPage() {
   const [storeId, setStoreId] = useState("");
   const [amount, setAmount] = useState("");
   const [priceError, setPriceError] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const renameMut = useMutation({
+    mutationFn: () => updateProductName({ data: { productId: pid, name: nameDraft.trim() } }),
+    onSuccess: (res) => {
+      if (!res.ok) {
+        setNameError(res.error);
+        return;
+      }
+      setNameError(null);
+      setEditingName(false);
+      qc.invalidateQueries({ queryKey: ["product", pid] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: () => setNameError("Could not save — try again."),
+  });
   // Mirrors the "Added ✓" confirmation used on the catalog cards — reverts on its
   // own after a moment so the button doesn't get stuck announcing an old click.
   const [justAdded, setJustAdded] = useState(false);
@@ -76,7 +102,10 @@ function ProductPage() {
   const [priceSubmitError, setPriceSubmitError] = useState<string | null>(null);
   const submitting = useRef(false);
   const addP = useMutation({
-    mutationFn: () => addPrice({ data: { productId: pid, storeId, amount: Number(amount) } }),
+    mutationFn: (): Promise<{ ok: true } | { ok: false; error: string }> =>
+      isAdmin
+        ? adminSetPrice({ data: { productId: pid, storeId, amount: Number(amount) } })
+        : addPrice({ data: { productId: pid, storeId, amount: Number(amount) } }),
     onSuccess: (data) => {
       if (!data.ok) {
         setPriceSubmitError(data.error);
@@ -140,7 +169,57 @@ function ProductPage() {
             <div>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
             <div>
-              <h1 className="font-display text-2xl font-semibold md:text-3xl">{product.name}</h1>
+              {isAdmin && editingName ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    autoFocus
+                    aria-label="Product name"
+                    className="h-10 min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 font-display text-xl font-semibold md:text-2xl"
+                    value={nameDraft}
+                    onChange={(e) => {
+                      setNameDraft(e.target.value);
+                      if (nameError) setNameError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !renameMut.isPending) renameMut.mutate();
+                      if (e.key === "Escape") setEditingName(false);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={renameMut.isPending || !nameDraft.trim()}
+                    onClick={() => renameMut.mutate()}
+                    className="h-9 rounded-lg bg-primary px-3 text-sm font-medium text-primary-fg disabled:opacity-60"
+                  >
+                    {renameMut.isPending ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingName(false)}
+                    className="h-9 rounded-lg border border-line px-3 text-sm"
+                  >
+                    Cancel
+                  </button>
+                  {nameError ? <p className="w-full text-xs text-warn">{nameError}</p> : null}
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-display text-2xl font-semibold md:text-3xl">{product.name}</h1>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNameDraft(product.name);
+                        setNameError(null);
+                        setEditingName(true);
+                      }}
+                      className="h-7 rounded-lg border border-line px-2 text-xs text-muted hover:bg-line/40"
+                    >
+                      Edit
+                    </button>
+                  ) : null}
+                </div>
+              )}
               <p className="text-sm text-muted">
                 {product.unit}
                 {product.brand ? ` · ${product.brand}` : ""}
@@ -257,6 +336,7 @@ function ProductPage() {
           {user ? (
             <form
               className="mt-6 grid gap-3 rounded-md border border-line bg-surface p-4 sm:flex sm:flex-wrap sm:items-end"
+              aria-label={isAdmin ? "Set price directly" : "Report a price"}
               onSubmit={(e) => {
                 e.preventDefault();
                 if (submitting.current) return;
@@ -312,11 +392,11 @@ function ProductPage() {
                 disabled={addP.isPending}
                 className="h-11 w-full rounded-xl bg-ink px-4 text-sm text-bg disabled:opacity-60 sm:w-auto"
               >
-                {addP.isPending ? "Saving…" : "Submit price"}
+                {addP.isPending ? "Saving…" : isAdmin ? "Save price" : "Submit price"}
               </button>
               {priceError ? <span className="text-sm text-warn">{priceError}</span> : null}
               {!priceError && addP.isSuccess && !priceSubmitError ? (
-                <span className="text-sm text-good">Submitted for review</span>
+                <span className="text-sm text-good">{isAdmin ? "Price updated ✓" : "Submitted for review"}</span>
               ) : null}
               {!priceError && priceSubmitError ? (
                 <span role="alert" className="text-sm text-warn">
