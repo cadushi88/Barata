@@ -79,15 +79,18 @@ function Home() {
 
   return (
     <Shell>
-      <div
-        className="-mx-4 mb-5 flex justify-center px-4 py-2 md:mb-6"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(-45deg, var(--color-highlight) 0 14px, var(--color-good) 14px 28px, var(--color-primary) 28px 42px, var(--color-warn) 42px 56px)",
-        }}
-      >
-        <span className="rounded-full bg-navy px-3 py-1 text-center text-xs font-bold uppercase tracking-wide text-navy-fg">
-          This week — biggest spreads across every store on the island
+      <div className="-mx-4 mb-5 bg-navy pb-2.5 md:mb-6">
+        <div
+          className="h-2"
+          style={{
+            backgroundImage: "radial-gradient(circle at center, var(--color-bg) 1.5px, transparent 2px)",
+            backgroundSize: "16px 100%",
+            backgroundRepeat: "repeat-x",
+          }}
+          aria-hidden="true"
+        />
+        <span className="mt-1.5 block text-center font-mono text-[11px] font-semibold uppercase tracking-wide text-highlight">
+          *** this week — biggest spreads across every store on the island ***
         </span>
       </div>
 
