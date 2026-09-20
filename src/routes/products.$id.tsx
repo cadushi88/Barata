@@ -255,30 +255,37 @@ function ProductPage() {
             </div>
           </div>
 
-          <div className="mt-5 space-y-2 md:hidden">
-            {prices.map((p) => {
-              const amt = num(p.amount);
-              const delta = amt - min;
-              return (
-                <Link
-                  key={p.store_id}
-                  to="/stores/$id"
-                  params={{ id: p.store_id }}
-                  className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-4 py-3 text-ink no-underline"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate font-medium">{p.store_name}</div>
-                    <div className="text-xs text-faint">{String(p.observed_at).slice(0, 10)}</div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="tabular-nums font-medium">{xcg(amt)}</div>
-                    <div className="text-xs">
-                      {delta < 0.01 ? <span className="text-good">Cheapest</span> : <span className="text-muted">+{xcg(delta)}</span>}
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+          <div className="mt-5 rounded-lg border border-ink bg-bg p-3 md:hidden">
+            <div className="space-y-1.5 border-t border-dashed border-line pt-1 first:border-t-0 first:pt-0">
+              {prices.map((p) => {
+                const amt = num(p.amount);
+                const delta = amt - min;
+                const cheapest = delta < 0.01;
+                return (
+                  <Link
+                    key={p.store_id}
+                    to="/stores/$id"
+                    params={{ id: p.store_id }}
+                    className={`flex items-baseline gap-1.5 rounded px-1.5 py-1 no-underline ${cheapest ? "bg-good/10" : ""}`}
+                  >
+                    <span className={`truncate font-mono text-xs font-bold uppercase ${cheapest ? "text-ink" : "text-muted"}`}>
+                      {p.store_name}
+                    </span>
+                    <span className="mb-[3px] grow border-b-2 border-dotted border-ink/25" />
+                    <span className={`shrink-0 font-mono text-sm font-bold tabular-nums ${cheapest ? "text-good" : "text-ink"}`}>
+                      {xcg(amt)}
+                    </span>
+                    {cheapest ? (
+                      <span className="shrink-0 -rotate-3 rounded border border-good px-1 font-mono text-[9px] font-bold text-good">
+                        CHEAPEST
+                      </span>
+                    ) : (
+                      <span className="shrink-0 font-mono text-[10px] text-faint">+{xcg(delta)}</span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
 
           <div className="mt-6 hidden overflow-x-auto rounded-md border border-line bg-surface md:block">

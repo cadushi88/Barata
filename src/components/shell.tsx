@@ -21,13 +21,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg text-ink">
       <header className="sticky top-0 z-20 bg-navy pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 lg:h-16">
+        <div className="mx-auto grid h-14 max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 lg:h-16">
+          <Link to="/" className="justify-self-start" aria-label="Barata home">
+            <img src="/favicon.png" alt="" className="h-8 w-8 rounded-lg lg:h-9 lg:w-9" />
+          </Link>
+
+          <div className="flex min-w-0 items-center gap-1 justify-self-center">
           <Link to="/" className="flex min-w-0 items-baseline gap-2 no-underline">
             <span className="font-display text-xl font-semibold tracking-tight text-navy-fg lg:text-2xl">Barata</span>
             <span className="hidden text-xs text-navy-fg/60 lg:inline">Curaçao prices</span>
           </Link>
 
-          <nav className="ml-6 hidden items-center gap-1 text-sm lg:flex">
+          <nav className="ml-4 hidden items-center gap-1 text-sm lg:flex">
             {tabs.map((t) => {
               const on = t.match(pathname);
               return (
@@ -71,8 +76,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
               </Link>
             ) : null}
           </nav>
+          </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2 justify-self-end">
             <ThemeToggle />
             {isPending ? (
               <div className="h-9 w-9 animate-pulse rounded-full bg-white/10" />
