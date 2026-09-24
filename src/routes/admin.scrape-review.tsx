@@ -95,17 +95,25 @@ function ScrapeReviewPage() {
         <div>
           <h1 className="font-display text-2xl font-semibold md:text-3xl">Scraper review</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            Scraped prices land here first — nothing reaches the public catalog until it's approved.
+            Scraped prices land here first. Exact-name matches with a sane price get published
+            automatically; anything fuzzy, unmatched, or price-suspicious waits here for review.
           </p>
         </div>
-        <button
-          type="button"
-          className="h-10 shrink-0 rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg disabled:opacity-60"
-          disabled={trigger.isPending}
-          onClick={() => trigger.mutate()}
-        >
-          {trigger.isPending ? "Running…" : "Run scraper now"}
-        </button>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <button
+            type="button"
+            className="h-10 rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg disabled:opacity-60"
+            disabled={trigger.isPending}
+            onClick={() => trigger.mutate()}
+          >
+            {trigger.isPending ? "Running…" : "Run scraper now"}
+          </button>
+          {trigger.data ? (
+            <p className="text-xs text-faint">
+              Staged {trigger.data.totalStaged}, auto-published {trigger.data.autoApproved}.
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[220px_1fr]">
