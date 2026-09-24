@@ -9,8 +9,21 @@ import { getProductPhotosMeta } from "@/lib/server/product-photos";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
 
+// Both optional (rather than defaulted to "") so every other `<Link to="/">`
+// in the app doesn't have to pass search params it doesn't care about, and
+// so a cleared search/category drops out of the URL instead of lingering
+// as `?q=&category=`.
+type HomeSearch = { q?: string; category?: string };
+
 export const Route = createFileRoute("/")({
   component: Home,
+  // Search and category live in the URL (not component state) so that
+  // following a product link and hitting the browser's back button lands
+  // back on this exact search/filter instead of a reset, empty catalog.
+  validateSearch: (search: Record<string, unknown>): HomeSearch => ({
+    q: typeof search.q === "string" && search.q ? search.q : undefined,
+    category: typeof search.category === "string" && search.category ? search.category : undefined,
+  }),
   head: () => ({ meta: [{ title: "Barata — Compare grocery prices" }] }),
 });
 
@@ -27,8 +40,14 @@ function BigPrice({ amount }: { amount: number }) {
 }
 
 function Home() {
-  const [q, setQ] = useState("");
-  const [category, setCategory] = useState("");
+  const { q = "", category = "" } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  // `replace: true` so typing a search collapses into one history entry
+  // instead of one per keystroke — a product Link still pushes a fresh
+  // entry, so back from a product page returns here in a single step.
+  const setQ = (next: string) => navigate({ search: (prev) => ({ ...prev, q: next || undefined }), replace: true });
+  const setCategory = (next: string) =>
+    navigate({ search: (prev) => ({ ...prev, category: next || undefined }), replace: true });
   const { user } = useCurrentUserState();
   const qc = useQueryClient();
   const cats = useQuery({ queryKey: ["cats"], queryFn: () => listCategories() });

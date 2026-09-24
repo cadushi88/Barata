@@ -4,6 +4,7 @@ import { adminMiddleware } from "@/lib/auth/admin-middleware";
 import { z } from "zod";
 import { runScrapeAndStage } from "./scrapers/run";
 import { buildMatchIndex, closestCandidate, type MatchCandidate } from "./scrapers/match";
+import { MAX_PRICE_XCG } from "./catalog";
 
 export type ScrapeRunRow = {
   id: number;
@@ -162,12 +163,19 @@ export const approveScrapedPrice = createServerFn({ method: "POST" })
     // Pre-check purely for a specific error message — the real guard against two
     // near-simultaneous approve calls double-inserting into `prices` is the
     // status='pending' condition on the UPDATE below (mirrors rejectScrapedPrice).
-    const [existing] = await sql<{ status: string; matched_product_id: number | null }>`
-      select status, matched_product_id from scraped_prices where id = ${data.id}
+    const [existing] = await sql<{ status: string; matched_product_id: number | null; raw_price: string }>`
+      select status, matched_product_id, raw_price::text as raw_price from scraped_prices where id = ${data.id}
     `;
     if (!existing) return { ok: false as const, error: "Not found" };
     if (existing.matched_product_id == null) {
       return { ok: false as const, error: "No matched product — map it manually before approving" };
+    }
+    // A scraped/receipt-sourced price never goes through addPrice/adminSetPrice's
+    // own positive-and-under-MAX_PRICE_XCG validator, so it hasn't been bounds-checked
+    // by anything yet — this is the last gate before it becomes a real, live price.
+    const rawPrice = Number(existing.raw_price);
+    if (!(rawPrice > 0) || rawPrice > MAX_PRICE_XCG) {
+      return { ok: false as const, error: `Price out of range (${existing.raw_price}) — reject this row or fix it before approving` };
     }
     // Atomically claim the row: only a request that actually flips a still-pending
     // row to 'approved' may proceed to insert into `prices`, so two overlapping
@@ -332,10 +340,15 @@ export const bulkApproveHighConfidence = createServerFn({ method: "POST" })
     // concurrent individual approveScrapedPrice/rejectScrapedPrice call — same guard
     // as there, just applied set-wise) and RETURNING hands back exactly the rows this
     // call actually claimed, replacing the former select-then-loop-of-queries.
+    // Same bounds check as approveScrapedPrice's single-row path: an out-of-range
+    // raw_price (a scraper misparse, a "you save" figure) is left pending rather
+    // than silently bulk-published, so a human sees it instead of it corrupting
+    // a real product's price.
     const rows = await sql<ClaimedPriceRow>`
       update scraped_prices set status = 'approved', reviewed_at = now(), reviewed_by = ${context.userId}
       where run_id = ${data.runId} and status = 'pending'
         and matched_product_id is not null and match_confidence >= ${threshold}
+        and raw_price > 0 and raw_price <= ${MAX_PRICE_XCG}
       returning id, store_id, matched_product_id, raw_price::text as raw_price, source, user_id, observed_at::text as observed_at
     `;
     await insertApprovedPrices(sql, rows);
@@ -355,9 +368,13 @@ export const approveAllPending = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
+    // Same bounds check as approveScrapedPrice/bulkApproveHighConfidence — an
+    // out-of-range raw_price stays pending instead of getting swept up by
+    // "Accept all" and published as a real price.
     const rows = await sql<ClaimedPriceRow>`
       update scraped_prices set status = 'approved', reviewed_at = now(), reviewed_by = ${context.userId}
       where status = 'pending' and matched_product_id is not null
+        and raw_price > 0 and raw_price <= ${MAX_PRICE_XCG}
       returning id, store_id, matched_product_id, raw_price::text as raw_price, source, user_id, observed_at::text as observed_at
     `;
     await insertApprovedPrices(sql, rows);

@@ -302,15 +302,14 @@ export const cheapestBasket = createServerFn({ method: "GET" })
         p.product_id, p.store_id, p.amount::text as amount, pr.name
       from prices p
       join products pr on pr.id = p.product_id
+      where p.product_id = any(${ids})
       -- p.id desc breaks observed_at ties deterministically (newest insert wins):
       -- commitReceipt stamps every line of a receipt with the same purchase-date
       -- timestamp, so a corrected re-upload would otherwise be a coin flip.
       order by p.product_id, p.store_id, p.observed_at desc, p.id desc
     `;
-    const idSet = new Set(ids);
     const byStore = new Map<string, { product_id: number; name: string; amount: number }[]>();
     for (const row of latest) {
-      if (!idSet.has(row.product_id)) continue;
       const list = byStore.get(row.store_id) ?? [];
       list.push({ product_id: row.product_id, name: row.name, amount: Number(row.amount) });
       byStore.set(row.store_id, list);

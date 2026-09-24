@@ -1,6 +1,7 @@
 import { getSql } from "@/lib/db";
 import { storeScrapers } from "./index";
 import { bestMatch, buildMatchIndex, type MatchCandidate } from "./match";
+import { MAX_PRICE_XCG } from "@/lib/server/catalog";
 
 export type ScrapeRunSummary = {
   runId: number;
@@ -35,7 +36,13 @@ export async function runScrapeAndStage(triggeredBy: "cron" | "manual"): Promise
     `;
     try {
       const items = await scraper.run();
-      for (const item of items) {
+      // A scraper reads someone else's HTML/JSON — a misparsed decimal, a
+      // "you save" figure, or a stray SKU number is exactly as likely as a
+      // real price. Nothing downstream re-checks raw_price before it can be
+      // bulk-approved straight into the live `prices` table, so junk gets
+      // filtered out here rather than staged and trusted later.
+      const validItems = items.filter((item) => Number.isFinite(item.price) && item.price > 0 && item.price <= MAX_PRICE_XCG);
+      for (const item of validItems) {
         const match = bestMatch(item.name, matchIndex);
         for (const storeId of scraper.storeIds) {
           await sql`
