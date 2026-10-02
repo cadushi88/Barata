@@ -20,26 +20,26 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-bg text-ink">
-      <header className="sticky top-0 z-20 bg-navy pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto grid h-14 max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 lg:h-16">
-          <Link to="/" className="justify-self-start" aria-label="Barata home">
-            <img src="/favicon.png" alt="" className="h-8 w-8 rounded-lg lg:h-9 lg:w-9" />
+      <header className="edge-torn relative z-20 bg-navy pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 lg:h-[4.5rem]">
+          <Link to="/" className="flex shrink-0 items-center gap-2.5 no-underline" aria-label="Barata home">
+            <img src="/favicon.png" alt="" className="tilt-l-sm h-9 w-9 rounded-sm lg:h-10 lg:w-10" />
+            <span className="flex flex-col leading-none">
+              <span className="font-display text-2xl tracking-wide text-navy-fg lg:text-[1.75rem]">Barata</span>
+              <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-navy-fg/55 lg:inline">
+                kuantu e ta kosta — how much does it cost
+              </span>
+            </span>
           </Link>
 
-          <div className="flex min-w-0 items-center gap-1 justify-self-center">
-          <Link to="/" className="flex min-w-0 items-baseline gap-2 no-underline">
-            <span className="font-display text-xl font-semibold tracking-tight text-navy-fg lg:text-2xl">Barata</span>
-            <span className="hidden text-xs text-navy-fg/60 lg:inline">Curaçao prices</span>
-          </Link>
-
-          <nav className="ml-4 hidden items-center gap-1 text-sm lg:flex">
+          <nav className="ml-2 hidden min-w-0 flex-1 items-center gap-1.5 text-sm lg:flex">
             {tabs.map((t) => {
               const on = t.match(pathname);
               return (
                 <Link
                   key={t.to}
                   to={t.to}
-                  className={`rounded-full px-3 py-2 no-underline ${on ? "bg-primary text-primary-fg" : "text-navy-fg/70 hover:bg-white/10 hover:text-navy-fg"}`}
+                  className={`px-3 py-1.5 no-underline ${on ? "-rotate-1 bg-highlight font-semibold text-highlight-fg" : "text-navy-fg/70 hover:text-navy-fg hover:underline hover:decoration-dashed hover:decoration-2 hover:underline-offset-4"}`}
                 >
                   {t.label}
                 </Link>
@@ -47,14 +47,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
             })}
             <Link
               to="/plan"
-              className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/plan") ? "bg-primary text-primary-fg" : "text-navy-fg/70 hover:bg-white/10 hover:text-navy-fg"}`}
+              className={`px-3 py-1.5 no-underline ${pathname.startsWith("/plan") ? "-rotate-1 bg-highlight font-semibold text-highlight-fg" : "text-navy-fg/70 hover:text-navy-fg hover:underline hover:decoration-dashed hover:decoration-2 hover:underline-offset-4"}`}
             >
               Business
             </Link>
             {user ? (
               <Link
                 to="/messages"
-                className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/messages") ? "bg-primary text-primary-fg" : "text-navy-fg/70 hover:bg-white/10 hover:text-navy-fg"}`}
+                className={`px-3 py-1.5 no-underline ${pathname.startsWith("/messages") ? "-rotate-1 bg-highlight font-semibold text-highlight-fg" : "text-navy-fg/70 hover:text-navy-fg hover:underline hover:decoration-dashed hover:decoration-2 hover:underline-offset-4"}`}
               >
                 Messages
               </Link>
@@ -62,7 +62,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             {user ? (
               <Link
                 to="/account"
-                className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/account") ? "bg-primary text-primary-fg" : "text-navy-fg/70 hover:bg-white/10 hover:text-navy-fg"}`}
+                className={`px-3 py-1.5 no-underline ${pathname.startsWith("/account") ? "-rotate-1 bg-highlight font-semibold text-highlight-fg" : "text-navy-fg/70 hover:text-navy-fg hover:underline hover:decoration-dashed hover:decoration-2 hover:underline-offset-4"}`}
               >
                 Account
               </Link>
@@ -70,18 +70,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
             {isAdmin ? (
               <Link
                 to="/admin"
-                className={`rounded-full px-3 py-2 no-underline ${pathname.startsWith("/admin") ? "bg-primary text-primary-fg" : "text-navy-fg/70 hover:bg-white/10 hover:text-navy-fg"}`}
+                className={`px-3 py-1.5 no-underline ${pathname.startsWith("/admin") ? "-rotate-1 bg-highlight font-semibold text-highlight-fg" : "text-navy-fg/70 hover:text-navy-fg hover:underline hover:decoration-dashed hover:decoration-2 hover:underline-offset-4"}`}
               >
                 Admin
               </Link>
             ) : null}
           </nav>
-          </div>
 
-          <div className="flex items-center gap-2 justify-self-end">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <ThemeToggle />
             {isPending ? (
-              <div className="h-9 w-9 animate-pulse rounded-full bg-white/10" />
+              <div className="h-9 w-9 animate-pulse bg-white/10" />
             ) : user ? (
               <SignedIn>
                 <UserButton />
@@ -90,7 +89,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <SignedOut>
                 <Link
                   to="/login"
-                  className="inline-flex h-10 min-w-10 items-center justify-center rounded-full bg-primary px-4 text-sm font-medium text-primary-fg no-underline"
+                  className="tilt-r-sm inline-flex h-10 min-w-10 items-center justify-center bg-primary px-4 text-sm font-semibold text-primary-fg no-underline"
                 >
                   Sign in
                 </Link>
@@ -99,32 +98,26 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <div
-        className="h-1.5 w-full"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(-45deg, var(--color-primary) 0 14px, color-mix(in srgb, var(--color-primary) 75%, black) 14px 28px)",
-        }}
-        aria-hidden="true"
-      />
 
       <InstallPrompt />
 
       <main className="mx-auto w-full max-w-6xl px-4 py-5 pb-28 lg:py-8 lg:pb-10">
         {children}
-        <footer className="mt-12 flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-4 text-xs text-faint">
-          <span>© {new Date().getFullYear()} Barata</span>
-          <Link to="/privacy" className="text-faint no-underline hover:text-muted hover:underline">
-            Privacy
-          </Link>
-          <Link to="/terms" className="text-faint no-underline hover:text-muted hover:underline">
-            Terms
-          </Link>
+        <footer className="mt-14 border-t-2 border-dashed border-line pt-4 font-mono text-xs text-faint">
+          <p className="tracking-wide">barata · {new Date().getFullYear()} · thank you, come again</p>
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+            <Link to="/privacy" className="text-faint no-underline hover:text-ink hover:underline">
+              privacy
+            </Link>
+            <Link to="/terms" className="text-faint no-underline hover:text-ink hover:underline">
+              terms
+            </Link>
+          </div>
         </footer>
       </main>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-ink bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
         aria-label="Primary"
       >
         <div className={`grid ${isAdmin ? "grid-cols-6" : "grid-cols-5"}`}>
@@ -135,28 +128,33 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <Link
                 key={t.to}
                 to={t.to}
-                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 no-underline ${on ? "text-primary" : "text-faint"}`}
+                className={`relative flex min-h-14 flex-col items-center justify-center gap-0.5 no-underline ${on ? "text-ink" : "text-faint"}`}
               >
-                <Icon size={22} strokeWidth={on ? 2.4 : 1.8} />
-                <span className="text-[11px] font-medium">{t.label}</span>
+                {on ? <span className="absolute inset-x-3 top-0 h-[3px] bg-highlight" aria-hidden="true" /> : null}
+                <Icon size={21} strokeWidth={on ? 2.3 : 1.7} />
+                <span className="font-mono text-[10px] font-medium uppercase tracking-wide">{t.label}</span>
               </Link>
             );
           })}
           {isAdmin ? (
             <Link
               to="/admin"
-              className={`flex min-h-14 flex-col items-center justify-center gap-0.5 no-underline ${pathname.startsWith("/admin") ? "text-primary" : "text-faint"}`}
+              className={`relative flex min-h-14 flex-col items-center justify-center gap-0.5 no-underline ${pathname.startsWith("/admin") ? "text-ink" : "text-faint"}`}
             >
-              <ShieldCheck size={22} strokeWidth={pathname.startsWith("/admin") ? 2.4 : 1.8} />
-              <span className="text-[11px] font-medium">Admin</span>
+              {pathname.startsWith("/admin") ? <span className="absolute inset-x-3 top-0 h-[3px] bg-highlight" aria-hidden="true" /> : null}
+              <ShieldCheck size={21} strokeWidth={pathname.startsWith("/admin") ? 2.3 : 1.7} />
+              <span className="font-mono text-[10px] font-medium uppercase tracking-wide">Admin</span>
             </Link>
           ) : null}
           <Link
             to={user ? "/account" : "/login"}
-            className={`flex min-h-14 flex-col items-center justify-center gap-0.5 no-underline ${pathname.startsWith("/login") || pathname.startsWith("/account") ? "text-primary" : "text-faint"}`}
+            className={`relative flex min-h-14 flex-col items-center justify-center gap-0.5 no-underline ${pathname.startsWith("/login") || pathname.startsWith("/account") ? "text-ink" : "text-faint"}`}
           >
-            <UserRound size={22} strokeWidth={pathname.startsWith("/login") || pathname.startsWith("/account") ? 2.4 : 1.8} />
-            <span className="text-[11px] font-medium">{user ? "You" : "Sign in"}</span>
+            {pathname.startsWith("/login") || pathname.startsWith("/account") ? (
+              <span className="absolute inset-x-3 top-0 h-[3px] bg-highlight" aria-hidden="true" />
+            ) : null}
+            <UserRound size={21} strokeWidth={pathname.startsWith("/login") || pathname.startsWith("/account") ? 2.3 : 1.7} />
+            <span className="font-mono text-[10px] font-medium uppercase tracking-wide">{user ? "You" : "Sign in"}</span>
           </Link>
         </div>
       </nav>

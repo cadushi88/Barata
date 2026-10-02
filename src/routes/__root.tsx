@@ -16,9 +16,9 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: APP_NAME },
-      { name: "theme-color", content: "#171b20", media: "(prefers-color-scheme: light)" },
-      { name: "theme-color", content: "#171b20", media: "(prefers-color-scheme: dark)" },
-      { name: "description", content: "Compare supermarket prices across Curaçao. Find who is cheapest." },
+      { name: "theme-color", content: "#211c14", media: "(prefers-color-scheme: light)" },
+      { name: "theme-color", content: "#211c14", media: "(prefers-color-scheme: dark)" },
+      { name: "description", content: "Who's cheapest today? Real prices from Curaçao's supermarkets, checked against each other." },
     ],
     scripts: [{ children: THEME_INIT_SCRIPT }, { children: CRASH_GUARD_SCRIPT }],
     links: [
@@ -29,7 +29,7 @@ export const Route = createRootRoute({
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Work+Sans:ital,wght@0,400;0,500;0,600;1,600&family=IBM+Plex+Mono:wght@400;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Fjalla+One&family=Work+Sans:ital,wght@0,400;0,500;0,600;1,600&family=IBM+Plex+Mono:wght@400;600;700&display=swap",
       },
     ],
   }),

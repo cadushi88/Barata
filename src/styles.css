@@ -1,61 +1,63 @@
 @import "tailwindcss";
 
+/*
+ * Design language: an open-air Curaçao market stall, not a SaaS dashboard.
+ * Reference points — hand-chalked price boards at Marshe Bieu, masking-tape
+ * stickers on a fruit crate, the blue of Blue Curaçao liqueur (the one export
+ * this island is actually famous for), and the thermal receipt a cashier
+ * tears off and hands you. Nothing here should read as a neutral template —
+ * every color and shape is pulled from something you'd actually see on a
+ * shelf or a sign.
+ */
 @theme {
-  --color-bg: #ffffff;
-  --color-surface: #f2f1ec;
-  --color-ink: #171b20;
-  --color-muted: #5c6672;
-  --color-faint: #6b7280;
-  --color-line: #e2e2e2;
-  --color-primary: #fd9905;
-  --color-primary-fg: #171b20;
+  --color-bg: #f7f5ee;
+  --color-surface: #fffdf6;
+  --color-ink: #211c14;
+  --color-muted: #5b5446;
+  --color-faint: #8b8372;
+  --color-line: #ddd6c3;
+  /* Blue Curaçao — the island's actual signature color, not a generic brand blue. */
+  --color-primary: #0a66c2;
+  --color-primary-fg: #fffdf6;
   --color-leaf: #2f6b4f;
-  --color-warn: #c7202a;
-  --color-good: #0d9138;
-  /* A constant brand navy for structural chrome (the header) — deliberately
-     does NOT redefine under dark mode, unlike every other token above.
-     Real supermarket-signage headers stay the same brand color regardless of
-     the visitor's OS theme; only the page content underneath re-themes.
-     Matched to the cart-icon logo's near-black, replacing the old blue navy. */
-  --color-navy: #171b20;
-  --color-navy-fg: #ffffff;
-  /* Shelf-tag yellow — the "today's find" price-tag callout, used sparingly.
-     Matches the logo's background yellow. */
-  --color-highlight: #fed716;
-  --color-highlight-fg: #171b20;
+  /* Papaya / scotch-bonnet red — sale stickers, warnings. */
+  --color-warn: #d13c1f;
+  --color-good: #2f7d32;
+  /* Chalkboard — the header and footer chrome. Deliberately does NOT redefine
+     under dark mode: a real market chalkboard doesn't change color when the
+     sun goes down, only the goods on the stall underneath do. */
+  --color-navy: #211c14;
+  --color-navy-fg: #fdf6e3;
+  /* Masking-tape mustard — the hand-stuck "today's find" price tag. */
+  --color-highlight: #f2a900;
+  --color-highlight-fg: #211c14;
   --font-sans: "Work Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  /* A condensed, inked, poster-headline face — built for shouting a price
+     across a stall, not for a pitch deck. */
+  --font-display: "Fjalla One", ui-sans-serif, system-ui, sans-serif;
   /* Till-receipt styling — store/price ladders, ticker banners, SKU-style labels. */
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
-  --radius-xl: 8px;
+  /* Mostly flat, like a printed flyer or a receipt — rounded corners are
+     reserved for the few places something is actually round (a sticker, a
+     stamp), not the default for every box on the page. */
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 4px;
 }
 
-/*
- * Dark mode defaults to the OS/browser preference, but a manual choice (the
- * header toggle, persisted to localStorage and applied as data-theme on
- * <html> before paint - see src/lib/theme.ts) overrides it either way. Every
- * component styles against the semantic tokens above (bg-bg, text-ink,
- * border-line, ...) rather than raw Tailwind palette classes, so redeclaring
- * the tokens here re-themes the whole app without touching component code.
- * The dark values are named once below and referenced from both the
- * system-preference rule and the explicit data-theme="dark" override so
- * they can't drift apart.
- */
 :root {
-  --dark-bg: #0d0d0e;
-  --dark-surface: #1a1a1c;
-  --dark-ink: #f5f5f6;
-  --dark-muted: #9a9a9e;
-  --dark-faint: #838387;
-  --dark-line: #2c2c2e;
-  --dark-primary: #ffab3d;
-  --dark-primary-fg: #14171c;
+  --dark-bg: #16130d;
+  --dark-surface: #221e15;
+  --dark-ink: #f3ede0;
+  --dark-muted: #b8ae98;
+  --dark-faint: #8a8270;
+  --dark-line: #3a3425;
+  --dark-primary: #4e9eef;
+  --dark-primary-fg: #0f1a24;
   --dark-leaf: #6bbd8f;
-  --dark-warn: #ff5b62;
-  --dark-good: #1ed172;
+  --dark-warn: #ff8360;
+  --dark-good: #5fcf68;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -107,15 +109,22 @@
     margin: 0;
     overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
+    /* A faint paper grain under everything — the one texture a flat SaaS
+       page never has. Two offset radial dot-fields, cheap to render, never
+       noticeable as "an effect" unless you go looking for it. */
+    background-image:
+      radial-gradient(color-mix(in srgb, var(--color-ink) 4%, transparent) 0.6px, transparent 0.6px),
+      radial-gradient(color-mix(in srgb, var(--color-ink) 3%, transparent) 0.6px, transparent 0.6px);
+    background-size: 3px 3px, 7px 7px;
+    background-position: 0 0, 1.5px 3.5px;
   }
   * {
     box-sizing: border-box;
   }
-  /* Bebas Neue is a display face designed for caps; headings lean into that
-     rather than rendering its mixed-case glyphs, which read as small-caps. */
-  h1, h2 {
+  h1, h2, h3 {
+    font-family: var(--font-display);
     text-transform: uppercase;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.015em;
   }
 }
 
@@ -124,4 +133,47 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---- Market-stall motifs — used sparingly, not on every element ---- */
+
+/* A torn/zigzagged edge, like the perforated tear-line on a receipt or the
+   cut edge of a price-tag strip. Used as a bottom border on chrome instead
+   of a flat line. */
+.edge-torn {
+  position: relative;
+}
+.edge-torn::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -7px;
+  height: 7px;
+  background: inherit;
+  clip-path: polygon(
+    0% 0%, 4% 100%, 8% 0%, 12% 100%, 16% 0%, 20% 100%, 24% 0%, 28% 100%,
+    32% 0%, 36% 100%, 40% 0%, 44% 100%, 48% 0%, 52% 100%, 56% 0%, 60% 100%,
+    64% 0%, 68% 100%, 72% 0%, 76% 100%, 80% 0%, 84% 100%, 88% 0%, 92% 100%,
+    96% 0%, 100% 100%, 100% 0%
+  );
+}
+
+/* A hand-stuck sticker: one clipped corner, a slight rotation, a hard
+   drop-shadow instead of a soft blur — tape on a crate, not a card in Figma. */
+.sticker {
+  clip-path: polygon(0 0, 100% 0, 100% 85%, 85% 100%, 0 100%);
+}
+
+/* Small rotation utilities — nothing in a real market sits perfectly square. */
+.tilt-l { transform: rotate(-1.6deg); }
+.tilt-r { transform: rotate(1.4deg); }
+.tilt-l-sm { transform: rotate(-0.8deg); }
+.tilt-r-sm { transform: rotate(0.9deg); }
+
+/* A rubber-stamped look for confirmation/verification badges. */
+.stamp {
+  border: 2.5px solid currentColor;
+  border-radius: 999px;
+  transform: rotate(-7deg);
 }
