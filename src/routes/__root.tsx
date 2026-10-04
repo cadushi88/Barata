@@ -2,6 +2,7 @@ import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/r
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { IntroSplash } from "@/components/intro-splash";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
@@ -109,6 +110,7 @@ function RootComponent() {
       </head>
       <body>
         <PreviewHostBridge />
+        <IntroSplash />
         <QueryClientProvider client={client}>
           <AuthProvider>
             <Outlet />

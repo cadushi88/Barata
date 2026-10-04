@@ -177,3 +177,40 @@
   border-radius: 999px;
   transform: rotate(-7deg);
 }
+
+/* ---- Opening intro: a QR-style scan over the mark, once per browser tab ---- */
+.intro-corner {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  opacity: 0.75;
+  color: var(--color-primary);
+  animation: intro-bracket-pulse 2.4s ease-in-out infinite;
+}
+.intro-corner-tl { top: -10px; left: -10px; border-top: 4px solid; border-left: 4px solid; border-radius: 6px 0 0 0; }
+.intro-corner-tr { top: -10px; right: -10px; border-top: 4px solid; border-right: 4px solid; border-radius: 0 6px 0 0; }
+.intro-corner-bl { bottom: -10px; left: -10px; border-bottom: 4px solid; border-left: 4px solid; border-radius: 0 0 0 6px; }
+.intro-corner-br { bottom: -10px; right: -10px; border-bottom: 4px solid; border-right: 4px solid; border-radius: 0 0 6px 0; }
+@keyframes intro-bracket-pulse {
+  0%, 85% { opacity: 0.7; }
+  90% { opacity: 1; filter: brightness(1.5); }
+  96% { opacity: 0.7; filter: brightness(1); }
+  100% { opacity: 0.7; }
+}
+.intro-scan-line {
+  position: absolute;
+  left: -10px;
+  right: -10px;
+  height: 3px;
+  z-index: 2;
+  background: var(--color-primary);
+  box-shadow: 0 0 12px 2px var(--color-primary), 0 0 2px var(--color-primary);
+  animation: intro-sweep 2.4s ease-in-out infinite;
+}
+@keyframes intro-sweep {
+  0% { top: 0%; opacity: 0; }
+  5% { opacity: 0.9; }
+  88% { top: 100%; opacity: 0.9; }
+  94% { opacity: 0; }
+  100% { top: 0%; opacity: 0; }
+}
