@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import {
   approveScrapedPrice,
   bulkApproveHighConfidence,
+  getLastCronRun,
   getScrapeRunDetail,
   listScrapeRuns,
   rejectScrapedPrice,
@@ -14,9 +15,44 @@ import { useAuthErrorMessage } from "@/lib/auth/mutation-error";
 
 export const Route = createFileRoute("/admin/scrape-review")({ component: ScrapeReviewPage });
 
+/** "3h ago", "2d ago" — coarse on purpose, this badge is a health check, not a clock. */
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const hours = ms / 3_600_000;
+  if (hours < 1) return "<1h ago";
+  if (hours < 48) return `${Math.floor(hours)}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+/** The cron fires daily — anything past ~30h (a day plus slack for scheduling jitter) means it's likely stopped firing. */
+function LastCronBadge({ data, isLoading }: { data: import("@/lib/server/scrape-review").LastCronRun | null | undefined; isLoading: boolean }) {
+  if (isLoading) return <span className="text-xs text-faint">Checking last cron run…</span>;
+  if (!data) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-warn/40 bg-warn/10 px-2.5 py-1 text-xs font-medium text-warn">
+        No cron run recorded yet
+      </span>
+    );
+  }
+  const hoursSince = (Date.now() - new Date(data.startedAt).getTime()) / 3_600_000;
+  const stale = hoursSince > 30 || data.status === "failed";
+  const tone = stale ? "border-warn/40 bg-warn/10 text-warn" : "border-good/40 bg-good/10 text-good";
+  return (
+    <span className={`inline-flex flex-wrap items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${tone}`}>
+      Last cron run {timeAgo(data.startedAt)}
+      {stale ? " — may be stalled" : ""}
+      <span className="font-normal opacity-80">
+        · {data.staged} staged, {data.autoPublished} auto-published, {data.pending} pending
+        {data.storeErrors > 0 ? `, ${data.storeErrors} store error${data.storeErrors === 1 ? "" : "s"}` : ""}
+      </span>
+    </span>
+  );
+}
+
 function ScrapeReviewPage() {
   const qc = useQueryClient();
   const runs = useQuery({ queryKey: ["scrape-runs"], queryFn: () => listScrapeRuns() });
+  const lastCron = useQuery({ queryKey: ["last-cron-run"], queryFn: () => getLastCronRun() });
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const activeRunId = selectedRunId ?? runs.data?.[0]?.id ?? null;
   const detail = useQuery({
@@ -98,6 +134,9 @@ function ScrapeReviewPage() {
             Scraped prices land here first. Exact-name matches with a sane price get published
             automatically; anything fuzzy, unmatched, or price-suspicious waits here for review.
           </p>
+          <div className="mt-2">
+            <LastCronBadge data={lastCron.data} isLoading={lastCron.isLoading} />
+          </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <button

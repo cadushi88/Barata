@@ -52,6 +52,59 @@ export const listScrapeRuns = createServerFn({ method: "GET" })
     `;
   });
 
+export type LastCronRun = {
+  runId: number;
+  startedAt: string;
+  finishedAt: string | null;
+  status: string;
+  staged: number;
+  autoPublished: number;
+  pending: number;
+  storeErrors: number;
+};
+
+/**
+ * The most recent `triggered_by = 'cron'` run — separate from `listScrapeRuns`
+ * (which mixes cron and manual "Run scraper now" runs) so the admin page can
+ * show a straight answer to "is the daily job actually firing?" without a
+ * recent manual run masking a stalled cron. Null means the cron has never
+ * completed a single run since this table existed.
+ */
+export const getLastCronRun = createServerFn({ method: "GET" })
+  .middleware([adminMiddleware])
+  .handler(async () => {
+    const sql = await getSql();
+    const [run] = await sql<{ id: number; started_at: string; finished_at: string | null; status: string }>`
+      select id, started_at::text as started_at, finished_at::text as finished_at, status
+      from scrape_runs
+      where triggered_by = 'cron'
+      order by started_at desc
+      limit 1
+    `;
+    if (!run) return null;
+    const [counts] = await sql<{ staged: number; auto_published: number; pending: number }>`
+      select
+        count(*)::int as staged,
+        count(*) filter (where status = 'approved')::int as auto_published,
+        count(*) filter (where status = 'pending')::int as pending
+      from scraped_prices where run_id = ${run.id}
+    `;
+    const [errRow] = await sql<{ n: number }>`
+      select count(*)::int as n from scrape_store_results where run_id = ${run.id} and status = 'error'
+    `;
+    const result: LastCronRun = {
+      runId: run.id,
+      startedAt: run.started_at,
+      finishedAt: run.finished_at,
+      status: run.status,
+      staged: counts.staged,
+      autoPublished: counts.auto_published,
+      pending: counts.pending,
+      storeErrors: errRow.n,
+    };
+    return result;
+  });
+
 export const getScrapeRunDetail = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
   .validator((input: { runId: number }) => z.object({ runId: z.number().int().positive() }).parse(input))

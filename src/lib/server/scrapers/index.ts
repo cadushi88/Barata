@@ -6,6 +6,8 @@ import { vreugdenhilScraper } from "./vreugdenhil";
 import { centrumScraper } from "./centrum";
 import { carrefourScraper } from "./carrefour";
 import { delinovaScraper } from "./delinova";
+import { curfoodsScraper } from "./curfoods";
+import { bestBuyScraper } from "./best-buy";
 
 export const storeScrapers: StoreScraper[] = [
   goiscoScraper,
@@ -15,4 +17,6 @@ export const storeScrapers: StoreScraper[] = [
   centrumScraper,
   carrefourScraper,
   delinovaScraper,
+  curfoodsScraper,
+  bestBuyScraper,
 ];
